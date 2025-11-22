@@ -817,6 +817,7 @@
 
       /** * Stops the active QR scanner and resets control buttons. */
       function startQrScanner() {
+            // Check global state
             if (qrCodeScanner) return;
             
             const startBtn = document.getElementById('start-scan-btn');
@@ -824,66 +825,68 @@
             const readerDiv = document.getElementById('reader');
             const scanStatus = document.getElementById('scan-status');
 
-            // Update UI to reflect scanning state
-            startBtn.classList.add('hidden');
-            stopBtn.classList.remove('hidden');
-            
-            // 🌟 CRITICAL FIX: Ensure the hidden class is removed if it was added.
+            // 1. Update UI to reflect scanning state
+            if (startBtn) startBtn.classList.add('hidden');
+            if (stopBtn) stopBtn.classList.remove('hidden');
+            // Make the container visible
             if (readerDiv) readerDiv.classList.remove('hidden'); 
+            if (scanStatus) scanStatus.textContent = 'Requesting camera access...';
+
+            // 2. Initialize the lower-level Html5Qrcode class
+            // This is the CRITICAL CHANGE to bypass the full UI menu
+            qrCodeScanner = new Html5Qrcode("reader"); 
+
+            const onScanSuccess = (decodedText, decodedResult) => {
+                // Pass the raw text to the handler
+                handleMarkAttendance(decodedText); 
+            };
             
-            // REMOVE: readerDiv.style.display = 'block'; // DELETE THIS LINE
+            const config = { 
+                fps: 10, 
+                qrbox: { width: 250, height: 250 }, 
+                // Target the back camera ('environment') on mobile devices
+                facingMode: "environment" 
+            };
 
-            scanStatus.textContent = 'Requesting camera access...';
-
-            // ... rest of the function remains the same ...
-
-        // Initialize the scanner instance
-        qrCodeScanner = new Html5QrcodeScanner(
-          "reader",
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          false
-        );
-
-        const onScanSuccess = (decodedText, decodedResult) => {
-          handleMarkAttendance(decodedText);
-        };
-
-        const onScanFailure = (error) => {
-          if (
-            error.includes("NotAllowedError") ||
-            error.includes("NotFoundError")
-          ) {
-            scanStatus.textContent =
-              "Error: Camera access denied or not found. Please enable camera permissions.";
-          } else {
-            scanStatus.textContent = "Scanning for QR Code...";
-          }
-        };
-
-        qrCodeScanner
-          .render(onScanSuccess, onScanFailure)
-          .then(() => {
-            scanStatus.textContent = "Scanning for QR Code...";
-          })
-          .catch((err) => {
-            scanStatus.textContent =
-              "Error starting camera. Check permissions.";
-            // If it fails to start, immediately reset the UI state
-            stopQrScanner(true);
-          });
-      }
-
-      async function handleMarkAttendance(qr_token) {
-        const data = await apiFetch("/student/mark_attendance", {
-          method: "POST",
-          body: JSON.stringify({ student_id: user.user_id, qr_token }),
-        });
-
-        if (data) {
-          showMessage("Attendance Marked!", data.message);
-          fetchStudentStats(user.user_id);
+            // 3. Start the scanning process immediately
+            qrCodeScanner.start(
+                { facingMode: "environment" }, // Request the back camera
+                config, 
+                onScanSuccess, 
+                // onScanFailure is optional when using the lower-level class
+                (error) => {
+                    // Update status text while scanning is active
+                    if (scanStatus) scanStatus.textContent = 'Scanning for QR Code...';
+                }
+            )
+            .catch(err => {
+                // This catch block handles initial permission denials or startup errors
+                if (err.includes("NotAllowedError") || err.includes("NotFoundError")) {
+                    scanStatus.textContent = 'Error: Camera access denied or not found. Please enable camera permissions.';
+                } else {
+                    scanStatus.textContent = 'Error starting camera. Check security context.';
+                }
+                // Stop and reset the UI if initialization fails
+                stopQrScanner(true); 
+            });
         }
-      }
+
+      async function handleMarkAttendance(qr_token_raw) {
+            // 🌟 CRITICAL FIX: Trim any leading/trailing whitespace from the scanned text
+            const qr_token = qr_token_raw.trim(); 
+            
+            const data = await apiFetch('/student/mark_attendance', {
+                method: 'POST',
+                body: JSON.stringify({ student_id: user.user_id, qr_token })
+            });
+
+            if (data) {
+                // Stop scanner upon successful attendance marking
+                stopQrScanner(true); 
+                showMessage('Attendance Marked!', data.message);
+                fetchStudentStats(user.user_id); 
+            }
+        }
 
       async function fetchStudentStats(studentId) {
         const data = await apiFetch(`/student/stats/${studentId}`, {
@@ -938,4 +941,3 @@
     </script>
   </body>
 </html>
-

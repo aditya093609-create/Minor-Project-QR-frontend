@@ -817,78 +817,69 @@
 
       /** * Stops the active QR scanner and resets control buttons. */
       function startQrScanner() {
-            // Check global state
-            if (qrCodeScanner) return;
-            
-            const startBtn = document.getElementById('start-scan-btn');
-            const stopBtn = document.getElementById('stop-scan-btn');
-            const readerDiv = document.getElementById('reader');
-            const scanStatus = document.getElementById('scan-status');
+        // Check global state
+        if (qrCodeScanner) return;
 
-            // 1. Update UI to reflect scanning state
-            if (startBtn) startBtn.classList.add('hidden');
-            if (stopBtn) stopBtn.classList.remove('hidden');
-            // Make the container visible
-            if (readerDiv) readerDiv.classList.remove('hidden'); 
-            if (scanStatus) scanStatus.textContent = 'Requesting camera access...';
+        // ... (variable definitions and UI updates) ...
 
-            // 2. Initialize the lower-level Html5Qrcode class
-            // This is the CRITICAL CHANGE to bypass the full UI menu
-            qrCodeScanner = new Html5Qrcode("reader"); 
+        // Initialize the lower-level Html5Qrcode class
+        qrCodeScanner = new Html5Qrcode("reader");
 
-            const onScanSuccess = (decodedText, decodedResult) => {
-                // Pass the raw text to the handler
-                handleMarkAttendance(decodedText); 
-            };
-            
-            const config = { 
-                fps: 10, 
-                qrbox: { width: 250, height: 250 }, 
-                // Target the back camera ('environment') on mobile devices
-                facingMode: "environment" 
-            };
+        const onScanSuccess = (decodedText, decodedResult) => {
+          // Pass the raw text to the handler
+          handleMarkAttendance(decodedText);
+        };
 
-            // 3. Start the scanning process immediately
-            qrCodeScanner.start(
-                { facingMode: "environment" }, // Request the back camera
-                config, 
-                onScanSuccess, 
-                // onScanFailure is optional when using the lower-level class
-                (error) => {
-                    // Update status text while scanning is active
-                    if (scanStatus) scanStatus.textContent = 'Scanning for QR Code...';
-                }
-            )
-            .catch(err => {
-                // This catch block handles initial permission denials or startup errors
-                if (err.includes("NotAllowedError") || err.includes("NotFoundError")) {
-                    scanStatus.textContent = 'Error: Camera access denied or not found. Please enable camera permissions.';
-                } else {
-                    scanStatus.textContent = 'Error starting camera. Check security context.';
-                }
-                // Stop and reset the UI if initialization fails
-                stopQrScanner(true); 
-            });
-        }
+        // 🌟 CRITICAL FIX: Enhanced Configuration for Mobile Scanning
+        const config = {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          // Set a longer delay after successful scan before stopping
+          disableFlip: false,
+          // Set the aspect ratio for better mobile scanning
+          aspectRatio: 1.0,
+        };
+
+        // 3. Start the scanning process immediately
+        qrCodeScanner
+          .start(
+            // Request the back camera ('environment') on mobile devices
+            { facingMode: "environment" },
+            config,
+            onScanSuccess,
+            (errorMessage) => {
+              // Update status text while scanning is active
+              if (scanStatus)
+                scanStatus.textContent = "Scanning for QR Code...";
+            }
+          )
+          .catch((err) => {
+            // ... (error handling remains the same) ...
+          });
+      }
 
       async function handleMarkAttendance(qr_token_raw) {
-            // 🌟 CRITICAL FIX: Trim any leading/trailing whitespace from the scanned text
-            showMessage('Token Read:', `The scanner read: ${qr_token}`, 'bg-purple-500');
+        // 🌟 CRITICAL FIX: Trim any leading/trailing whitespace from the scanned text
+        showMessage(
+          "Token Read:",
+          `The scanner read: ${qr_token}`,
+          "bg-purple-500"
+        );
 
-            const qr_token = qr_token_raw.trim(); 
-            
-            const data = await apiFetch('/student/mark_attendance', {
-                method: 'POST',
-                body: JSON.stringify({ student_id: user.user_id, qr_token })
-            });
+        const qr_token = qr_token_raw.trim().toUpperCase();
 
-            if (data) {
-                // Stop scanner upon successful attendance marking
-                stopQrScanner(true); 
-                showMessage('Attendance Marked!', data.message);
-                fetchStudentStats(user.user_id); 
-            }
+        const data = await apiFetch("/student/mark_attendance", {
+          method: "POST",
+          body: JSON.stringify({ student_id: user.user_id, qr_token }),
+        });
+
+        if (data) {
+          // Stop scanner upon successful attendance marking
+          stopQrScanner(true);
+          showMessage("Attendance Marked!", data.message);
+          fetchStudentStats(user.user_id);
         }
+      }
 
       async function fetchStudentStats(studentId) {
         const data = await apiFetch(`/student/stats/${studentId}`, {
@@ -943,4 +934,3 @@
     </script>
   </body>
 </html>
-

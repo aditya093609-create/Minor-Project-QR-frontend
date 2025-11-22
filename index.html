@@ -127,27 +127,23 @@
       }
       /* Stops the active QR scanner and resets control buttons. */
       /** * Stops the active QR scanner and resets control buttons. */
+      /** Stops the active QR scanner and resets control buttons. */
       function stopQrScanner(silent = false) {
         const startBtn = document.getElementById("start-scan-btn");
         const stopBtn = document.getElementById("stop-scan-btn");
         const readerDiv = document.getElementById("reader");
         const scanStatus = document.getElementById("scan-status");
 
-        // Store a reference to the active scanner
         const scannerToStop = qrCodeScanner;
 
-        // 🌟 CRITICAL FIX 1: Immediately clear the global reference
-        // This allows startQrScanner() or handleLogout() to proceed without waiting.
+        // CRITICAL: Clear the global reference immediately
         qrCodeScanner = null;
 
-        // 1. IMMEDIATE UI UPDATE: Transition the buttons and hide the container
+        // 1. IMMEDIATE UI UPDATE
         if (startBtn) startBtn.classList.remove("hidden");
         if (stopBtn) stopBtn.classList.add("hidden");
-        if (readerDiv) readerDiv.classList.add("hidden"); // Use class to hide
-        if (scanStatus) scanStatus.textContent = "Stopping scanner...";
 
         if (scannerToStop) {
-          // 2. Perform asynchronous stop on the old instance
           scannerToStop
             .stop()
             .then(() => {
@@ -156,19 +152,21 @@
             })
             .catch((err) => {
               if (!silent)
-                console.log(
-                  "Scanner stop error (possibly already stopped):",
+                console.warn(
+                  "Scanner stop error (might already be stopped):",
                   err
                 );
             })
             .finally(() => {
               // Final Cleanup: Clear container HTML and confirm status
-              if (readerDiv) readerDiv.innerHTML = ""; // 🌟 CRITICAL FIX 2: Wipe the container clean
+              if (readerDiv) readerDiv.innerHTML = "";
+              if (readerDiv) readerDiv.classList.add("hidden");
               if (scanStatus) scanStatus.textContent = "Scanner is inactive.";
             });
         } else {
-          // If no scanner was active, just ensure the UI is in the default state
+          // Ensure UI is reset even if scanner wasn't active
           if (readerDiv) readerDiv.innerHTML = "";
+          if (readerDiv) readerDiv.classList.add("hidden");
           if (scanStatus) scanStatus.textContent = "Scanner is inactive.";
         }
       }
@@ -820,57 +818,66 @@
         // Check global state
         if (qrCodeScanner) return;
 
-        // ... (variable definitions and UI updates) ...
+        const startBtn = document.getElementById("start-scan-btn");
+        const stopBtn = document.getElementById("stop-scan-btn");
+        const readerDiv = document.getElementById("reader");
+        const scanStatus = document.getElementById("scan-status");
 
-        // Initialize the lower-level Html5Qrcode class
+        // 1. Update UI and clear container (in case stop didn't finish)
+        if (startBtn) startBtn.classList.add("hidden");
+        if (stopBtn) stopBtn.classList.remove("hidden");
+
+        if (readerDiv) {
+          readerDiv.innerHTML = ""; // Force wipe before starting
+          readerDiv.classList.remove("hidden");
+        }
+        if (scanStatus) scanStatus.textContent = "Requesting camera access...";
+
+        // 2. Initialize the lower-level Html5Qrcode class
         qrCodeScanner = new Html5Qrcode("reader");
 
         const onScanSuccess = (decodedText, decodedResult) => {
-          // Pass the raw text to the handler
           handleMarkAttendance(decodedText);
         };
 
-        // 🌟 CRITICAL FIX: Enhanced Configuration for Mobile Scanning
         const config = {
           fps: 10,
           qrbox: { width: 250, height: 250 },
-          // Set a longer delay after successful scan before stopping
-          disableFlip: false,
-          // Set the aspect ratio for better mobile scanning
-          aspectRatio: 1.0,
+          aspectRatio: 1.0, // Better for mobile
         };
 
-        // 3. Start the scanning process immediately
+        // 3. Start the scanning process immediately, requesting the back camera
         qrCodeScanner
           .start(
-            // Request the back camera ('environment') on mobile devices
             { facingMode: "environment" },
             config,
             onScanSuccess,
+            // onScanFailure handler is used for ongoing errors while scanning
             (errorMessage) => {
-              // Update status text while scanning is active
               if (scanStatus)
                 scanStatus.textContent = "Scanning for QR Code...";
             }
           )
           .catch((err) => {
-            // ... (error handling remains the same) ...
+            // Handles initial permission denial or hardware failure
+            if (scanStatus) {
+              scanStatus.textContent =
+                "Error starting camera. Check permissions/security context.";
+            }
+            stopQrScanner(true);
           });
       }
-
       async function handleMarkAttendance(qr_token_raw) {
-        // 🌟 CRITICAL FIX: Trim any leading/trailing whitespace from the scanned text
-        showMessage(
-          "Token Read:",
-          `The scanner read: ${qr_token}`,
-          "bg-purple-500"
-        );
-
+        // Ensure the token is clean and matches the case used by the backend
+        // Assuming your backend expects uppercase and needs whitespace removed.
         const qr_token = qr_token_raw.trim().toUpperCase();
 
         const data = await apiFetch("/student/mark_attendance", {
           method: "POST",
-          body: JSON.stringify({ student_id: user.user_id, qr_token }),
+          body: JSON.stringify({
+            student_id: user.user_id,
+            qr_token: qr_token,
+          }),
         });
 
         if (data) {

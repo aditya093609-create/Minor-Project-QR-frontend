@@ -139,7 +139,7 @@ tbody tr:hover {
   color: #991b1b;
 }
 
-.excel-btn {
+#export-excel-btn {
   background-color: #2563eb;
   color: #fff;
   padding: 10px 16px;
@@ -151,11 +151,11 @@ tbody tr:hover {
   transition: 0.25s;
 }
 
-.excel-btn:hover {
+#export-excel-btn:hover {
   background-color: #1d4ed8;
 }
 
-.excel-btn:active{
+#export-excel-btn:active{
   background-color: #002385;
 }
 

@@ -60,7 +60,7 @@
       // CORE UTILITIES & STATE MANAGEMENT (Acts like a global 'app.js' module)
       // =========================================================================
 
-      const API_BASE = "https://minor-project-qr-backend-1.onrender.com";
+      const API_BASE = "http://127.0.0.1:5000";
 
       // Global State
       let user = JSON.parse(localStorage.getItem("user")) || null;
@@ -873,6 +873,8 @@
 
       async function handleMarkAttendance(qr_token_raw) {
             // 🌟 CRITICAL FIX: Trim any leading/trailing whitespace from the scanned text
+            showMessage('Token Read:', `The scanner read: ${qr_token}`, 'bg-purple-500');
+
             const qr_token = qr_token_raw.trim(); 
             
             const data = await apiFetch('/student/mark_attendance', {

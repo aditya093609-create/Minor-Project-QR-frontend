@@ -60,7 +60,7 @@
       // CORE UTILITIES & STATE MANAGEMENT (Acts like a global 'app.js' module)
       // =========================================================================
 
-      const API_BASE = "https://minor-project-qr-backend-1.onrender.com";
+      const API_BASE = "http://127.0.0.1:5000";
 
       // Global State
       let user = JSON.parse(localStorage.getItem("user")) || null;
@@ -817,20 +817,25 @@
 
       /** * Stops the active QR scanner and resets control buttons. */
       function startQrScanner() {
-        // Check global state cleared by stopQrScanner
-        if (qrCodeScanner) return;
+            if (qrCodeScanner) return;
+            
+            const startBtn = document.getElementById('start-scan-btn');
+            const stopBtn = document.getElementById('stop-scan-btn');
+            const readerDiv = document.getElementById('reader');
+            const scanStatus = document.getElementById('scan-status');
 
-        const startBtn = document.getElementById("start-scan-btn");
-        const stopBtn = document.getElementById("stop-scan-btn");
-        const readerDiv = document.getElementById("reader");
-        const scanStatus = document.getElementById("scan-status");
+            // Update UI to reflect scanning state
+            startBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+            
+            // 🌟 CRITICAL FIX: Ensure the hidden class is removed if it was added.
+            if (readerDiv) readerDiv.classList.remove('hidden'); 
+            
+            // REMOVE: readerDiv.style.display = 'block'; // DELETE THIS LINE
 
-        // Update UI to reflect scanning state
-        startBtn.classList.add("hidden");
-        stopBtn.classList.remove("hidden");
-        // CRITICAL: Remove the hidden class to show the container
-        if (readerDiv) readerDiv.classList.remove("hidden");
-        scanStatus.textContent = "Requesting camera access...";
+            scanStatus.textContent = 'Requesting camera access...';
+
+            // ... rest of the function remains the same ...
 
         // Initialize the scanner instance
         qrCodeScanner = new Html5QrcodeScanner(

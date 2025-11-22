@@ -1,249 +1,251 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>QR Attendance System</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Font: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
     <!-- QR Code Generator CDN (for Admin view) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- HTML5 QR Code Scanner CDN (for Student view) -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
-    <link rel="stylesheet" href="style.css">
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-        .card { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
-        .btn-primary { @apply bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out; }
-        .btn-danger { @apply bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out; }
-        .btn-secondary { @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-150 ease-in-out; }
-        .input-field { @apply w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500; }
-        /* Custom modal styles for better visibility than alert() */
-        .modal { z-index: 1000; background-color: rgba(0, 0, 0, 0.6); }
-        /* Style for the QR code reader container */
-        #reader {
-            width: 100%;
-            border-radius: 0.75rem; /* rounded-xl */
-            overflow: hidden;
-            background-color: #000; /* Black background for contrast */
-            /* Hide by default until started */
-            display: none; 
-        }
-        #reader div { /* Targets the internal video element container */
-            border-radius: 0.75rem !important;
-        }
-    </style>
-</head>
-<body class="min-h-screen flex items-center justify-center p-4">
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="min-h-screen flex items-center justify-center p-4">
     <!-- Modal for Messages -->
-    <div id="message-modal" class="modal fixed inset-0 hidden items-center justify-center p-4">
-        <div class="bg-white card rounded-xl p-6 w-full max-w-sm">
-            <h3 id="modal-title" class="text-xl font-bold text-gray-800 mb-4"></h3>
-            <p id="modal-body" class="text-gray-600 mb-6"></p>
-            <button id="modal-close-btn" class="btn-primary w-full">Close</button>
-        </div>
+    <div
+      id="message-modal"
+      class="modal fixed inset-0 hidden items-center justify-center p-4"
+    >
+      <div class="bg-white card rounded-xl p-6 w-full max-w-sm">
+        <h3 id="modal-title" class="text-xl font-bold text-gray-800 mb-4"></h3>
+        <p id="modal-body" class="text-gray-600 mb-6"></p>
+        <button id="modal-close-btn" class="btn-primary w-full">Close</button>
+      </div>
     </div>
 
     <div id="app" class="w-full max-w-5xl">
-        
-        <!-- Header -->
-        <header class="bg-white card rounded-xl p-4 mb-6 flex justify-between items-center">
-            <h1 class="text-3xl font-extrabold text-indigo-700">Attendance QR</h1>
-            <div id="user-info" class="flex items-center space-x-4">
-                <span id="welcome-message" class="text-lg font-medium text-gray-600"></span>
-                <button id="logout-btn" class="hidden btn-secondary text-sm">Logout</button>
-            </div>
-        </header>
+      <!-- Header -->
+      <header
+        class="bg-white card rounded-xl p-4 mb-6 flex justify-between items-center"
+      >
+        <h1 class="text-3xl font-extrabold text-indigo-700">Attendance QR</h1>
+        <div id="user-info" class="flex items-center space-x-4">
+          <span
+            id="welcome-message"
+            class="text-lg font-medium text-gray-600"
+          ></span>
+          <button id="logout-btn" class="hidden btn-secondary text-sm">
+            Logout
+          </button>
+        </div>
+      </header>
 
-        <!-- Main Content Area -->
-        <main id="content" class="bg-white card rounded-xl p-8"></main>
-
+      <!-- Main Content Area -->
+      <main id="content" class="bg-white card rounded-xl p-8"></main>
     </div>
 
     <script>
-        // =========================================================================
-        // CORE UTILITIES & STATE MANAGEMENT (Acts like a global 'app.js' module)
-        // =========================================================================
+      // =========================================================================
+      // CORE UTILITIES & STATE MANAGEMENT (Acts like a global 'app.js' module)
+      // =========================================================================
 
-        const API_BASE = 'https://minor-project-qr-backend-1.onrender.com'; 
-        
-        // Global State
-        let user = JSON.parse(localStorage.getItem('user')) || null;
-        let qrCodeScanner = null; 
-        
-        // DOM Elements
-        const contentDiv = document.getElementById('content');
-        const logoutBtn = document.getElementById('logout-btn');
-        const welcomeMessage = document.getElementById('welcome-message');
-        const modal = document.getElementById('message-modal');
-        const modalTitle = document.getElementById('modal-title');
-        const modalBody = document.getElementById('modal-body');
-        const modalCloseBtn = document.getElementById('modal-close-btn');
+      const API_BASE = "http://127.0.0.1:5000";
 
-        /** Shows a custom styled message modal */
-        function showMessage(title, message, onModalClose = null) {
-            // Stop the scanner immediately, forcing restart via button
-            if (qrCodeScanner) {
-                stopQrScanner(true); 
-            }
+      // Global State
+      let user = JSON.parse(localStorage.getItem("user")) || null;
+      let qrCodeScanner = null;
 
-            modalTitle.textContent = title;
-            modalBody.innerHTML = message.replace(/\n/g, '<br>');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            
-            modalCloseBtn.onclick = () => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                if (onModalClose) {
-                    onModalClose(); // Execute callback after modal closes
-                }
-            };
+      // DOM Elements
+      const contentDiv = document.getElementById("content");
+      const logoutBtn = document.getElementById("logout-btn");
+      const welcomeMessage = document.getElementById("welcome-message");
+      const modal = document.getElementById("message-modal");
+      const modalTitle = document.getElementById("modal-title");
+      const modalBody = document.getElementById("modal-body");
+      const modalCloseBtn = document.getElementById("modal-close-btn");
+
+      /** Shows a custom styled message modal */
+      function showMessage(title, message, onModalClose = null) {
+        // Stop the scanner immediately, forcing restart via button
+        if (qrCodeScanner) {
+          stopQrScanner(true);
         }
 
-        /** Handles API requests with proper JSON headers and error handling. */
-        async function apiFetch(endpoint, options = {}) {
-            try {
-                const response = await fetch(`${API_BASE}${endpoint}`, {
-                    ...options,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...options.headers
-                    }
-                });
+        modalTitle.textContent = title;
+        modalBody.innerHTML = message.replace(/\n/g, "<br>");
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
 
-                const data = await response.json();
+        modalCloseBtn.onclick = () => {
+          modal.classList.add("hidden");
+          modal.classList.remove("flex");
+          if (onModalClose) {
+            onModalClose(); // Execute callback after modal closes
+          }
+        };
+      }
 
-                if (!response.ok) {
-                    const errorMessage = data.error || data.message || `API Error: ${response.statusText}`;
-                    showMessage('Error', errorMessage);
-                    return null;
-                }
-                return data;
+      /** Handles API requests with proper JSON headers and error handling. */
+      async function apiFetch(endpoint, options = {}) {
+        try {
+          const response = await fetch(`${API_BASE}${endpoint}`, {
+            ...options,
+            headers: {
+              "Content-Type": "application/json",
+              ...options.headers,
+            },
+          });
 
-            } catch (error) {
-                console.error('Network or Parsing Error:', error);
-                showMessage('Network Error', 'Could not connect to the backend server. Make sure the Flask app is running on 127.0.0.1:5000.');
-                return null;
-            }
+          const data = await response.json();
+
+          if (!response.ok) {
+            const errorMessage =
+              data.error || data.message || `API Error: ${response.statusText}`;
+            showMessage("Error", errorMessage);
+            return null;
+          }
+          return data;
+        } catch (error) {
+          console.error("Network or Parsing Error:", error);
+          showMessage(
+            "Network Error",
+            "Could not connect to the backend server. Make sure the Flask app is running on 127.0.0.1:5000."
+          );
+          return null;
         }
-        
-        /** * Stops the active QR scanner and resets control buttons. */
-        function stopQrScanner(silent = false) {
-            const startBtn = document.getElementById('start-scan-btn');
-            const stopBtn = document.getElementById('stop-scan-btn');
-            const readerDiv = document.getElementById('reader');
-            const scanStatus = document.getElementById('scan-status');
+      }
 
-            if (qrCodeScanner) {
-                qrCodeScanner.stop().then(() => {
-                    if (!silent) console.log("QR Code scanning stopped.");
-                }).catch(err => {
-                    if (!silent) console.log("Scanner stop error (possibly already stopped):", err);
-                });
-                qrCodeScanner = null;
-            }
-            
-            // Update UI
-            if (startBtn) startBtn.classList.remove('hidden');
-            if (stopBtn) stopBtn.classList.add('hidden');
-            if (readerDiv) readerDiv.style.display = 'none';
-            if (scanStatus) scanStatus.textContent = 'Scanner is inactive.';
-        }
+      /** * Stops the active QR scanner and resets control buttons. */
+      function stopQrScanner(silent = false) {
+        const startBtn = document.getElementById("start-scan-btn");
+        const stopBtn = document.getElementById("stop-scan-btn");
+        const readerDiv = document.getElementById("reader");
+        const scanStatus = document.getElementById("scan-status");
 
-
-        /** Updates the header and navigates to the correct dashboard based on user state. */
-        function navigate() {
-            // Always stop scanner before rendering a new view
-            stopQrScanner(true); 
-            contentDiv.innerHTML = '';
-            
-            if (user) {
-                // Display Roll No. if available, otherwise just Name and Role
-                const rollDisplay = user.rollno ? ` (${user.rollno})` : '';
-                welcomeMessage.textContent = `Welcome, ${user.name}${rollDisplay} (${user.role})`;
-                logoutBtn.classList.remove('hidden');
-                if (user.role === 'admin') {
-                    renderAdminDashboard();
-                } else if (user.role === 'student') {
-                    renderStudentDashboard();
-                } else {
-                    renderAuthView();
-                }
-            } else {
-                welcomeMessage.textContent = 'Please Login or Register';
-                logoutBtn.classList.add('hidden');
-                renderAuthView();
-            }
-        }
-
-        // =========================================================================
-        // AUTHENTICATION/LOGIN LOGIC (Acts like a 'login.js' module)
-        // =========================================================================
-
-        function handleAuthSuccess(userData) {
-            user = userData;
-            localStorage.setItem('user', JSON.stringify(user));
-            navigate(); 
-        }
-
-        async function handleLogin(e) {
-            e.preventDefault();
-            const username = e.target.username.value;
-            const password = e.target.password.value;
-
-            const data = await apiFetch('/login', {
-                method: 'POST',
-                body: JSON.stringify({ username, password })
+        if (qrCodeScanner) {
+          qrCodeScanner
+            .stop()
+            .then(() => {
+              if (!silent) console.log("QR Code scanning stopped.");
+            })
+            .catch((err) => {
+              if (!silent)
+                console.log(
+                  "Scanner stop error (possibly already stopped):",
+                  err
+                );
             });
+          qrCodeScanner = null;
+        }
 
-            if (data) {
-                // Show message, then call handleAuthSuccess only AFTER modal closes
-                showMessage('Success', data.message || 'Login successful!', () => handleAuthSuccess(data));
+        // Update UI
+        if (startBtn) startBtn.classList.remove("hidden");
+        if (stopBtn) stopBtn.classList.add("hidden");
+        if (readerDiv) readerDiv.style.display = "none";
+        if (scanStatus) scanStatus.textContent = "Scanner is inactive.";
+      }
+
+      /** Updates the header and navigates to the correct dashboard based on user state. */
+      function navigate() {
+        // Always stop scanner before rendering a new view
+        stopQrScanner(true);
+        contentDiv.innerHTML = "";
+
+        if (user) {
+          // Display Roll No. if available, otherwise just Name and Role
+          const rollDisplay = user.rollno ? ` (${user.rollno})` : "";
+          welcomeMessage.textContent = `Welcome, ${user.name}${rollDisplay} (${user.role})`;
+          logoutBtn.classList.remove("hidden");
+          if (user.role === "admin") {
+            renderAdminDashboard();
+          } else if (user.role === "student") {
+            renderStudentDashboard();
+          } else {
+            renderAuthView();
+          }
+        } else {
+          welcomeMessage.textContent = "Please Login or Register";
+          logoutBtn.classList.add("hidden");
+          renderAuthView();
+        }
+      }
+
+      // =========================================================================
+      // AUTHENTICATION/LOGIN LOGIC (Acts like a 'login.js' module)
+      // =========================================================================
+
+      function handleAuthSuccess(userData) {
+        user = userData;
+        localStorage.setItem("user", JSON.stringify(user));
+        navigate();
+      }
+
+      async function handleLogin(e) {
+        e.preventDefault();
+        const username = e.target.username.value;
+        const password = e.target.password.value;
+
+        const data = await apiFetch("/login", {
+          method: "POST",
+          body: JSON.stringify({ username, password }),
+        });
+
+        if (data) {
+          // Show message, then call handleAuthSuccess only AFTER modal closes
+          showMessage("Success", data.message || "Login successful!", () =>
+            handleAuthSuccess(data)
+          );
+        }
+      }
+
+      async function handleRegister(e) {
+        e.preventDefault();
+        const name = e.target.name.value;
+        const username = e.target.username.value;
+        const password = e.target.password.value;
+        const role = e.target.role.value;
+        // Send rollno regardless, backend will ignore it if role is admin
+        const rollno = e.target.rollno.value;
+
+        const data = await apiFetch("/register", {
+          method: "POST",
+          body: JSON.stringify({ name, username, password, role, rollno }),
+        });
+
+        if (data) {
+          const authForm = document.getElementById("auth-form");
+          if (authForm) authForm.reset();
+
+          showMessage(
+            "Registration Success",
+            data.message + "\n\nPlease proceed to login.",
+            () => {
+              // Switch to login view after modal dismisses
+              const showLoginBtn = document.getElementById("show-login");
+              if (showLoginBtn) showLoginBtn.click();
             }
+          );
         }
+      }
 
-        async function handleRegister(e) {
-            e.preventDefault();
-            const name = e.target.name.value;
-            const username = e.target.username.value;
-            const password = e.target.password.value;
-            const role = e.target.role.value;
-            // Send rollno regardless, backend will ignore it if role is admin
-            const rollno = e.target.rollno.value; 
+      function handleLogout() {
+        stopQrScanner(true);
+        user = null;
+        localStorage.removeItem("user");
+        navigate();
+        showMessage("Logged Out", "You have been successfully logged out.");
+      }
 
-            const data = await apiFetch('/register', {
-                method: 'POST',
-                body: JSON.stringify({ name, username, password, role, rollno })
-            });
-
-            if (data) {
-                const authForm = document.getElementById('auth-form');
-                if (authForm) authForm.reset();
-                
-                showMessage('Registration Success', 
-                            data.message + '\n\nPlease proceed to login.', 
-                            () => {
-                                // Switch to login view after modal dismisses
-                                const showLoginBtn = document.getElementById('show-login');
-                                if (showLoginBtn) showLoginBtn.click();
-                            });
-            }
-        }
-
-        function handleLogout() {
-            stopQrScanner(true);
-            user = null;
-            localStorage.removeItem('user');
-            navigate();
-            showMessage('Logged Out', 'You have been successfully logged out.');
-        }
-
-        function renderAuthView() {
-            contentDiv.innerHTML = `
+      function renderAuthView() {
+        contentDiv.innerHTML = `
                 <div class="max-w-md mx-auto">
                     <h2 class="text-3xl font-bold text-gray-900 mb-6 text-center">Welcome to the Attendance System</h2>
                     
@@ -287,86 +289,88 @@
                 </div>
             `;
 
-            const authForm = document.getElementById('auth-form');
-            const showLoginBtn = document.getElementById('show-login');
-            const showRegisterBtn = document.getElementById('show-register');
-            const roleSelect = document.getElementById('role');
-            
-            // New references
-            const nameContainer = document.getElementById('name-container');
-            const nameInput = document.getElementById('name');
-            
-            const rollnoContainer = document.getElementById('rollno-container');
-            const rollnoInput = document.getElementById('rollno'); 
-            const submitBtn = document.getElementById('submit-btn');
+        const authForm = document.getElementById("auth-form");
+        const showLoginBtn = document.getElementById("show-login");
+        const showRegisterBtn = document.getElementById("show-register");
+        const roleSelect = document.getElementById("role");
 
-            let isLogin = true;
+        // New references
+        const nameContainer = document.getElementById("name-container");
+        const nameInput = document.getElementById("name");
 
-            function updateRegistrationFields(selectedRole) {
-                if (selectedRole === 'student') {
-                    rollnoContainer.classList.remove('hidden');
-                    rollnoInput.required = true;
-                    rollnoInput.value = ''; // Clear for new input
-                } else {
-                    rollnoContainer.classList.add('hidden');
-                    rollnoInput.required = false;
-                    // Important: Set rollno to a dummy value so it's sent to the backend but is not an empty string
-                    rollnoInput.value = ''; 
-                }
-            }
+        const rollnoContainer = document.getElementById("rollno-container");
+        const rollnoInput = document.getElementById("rollno");
+        const submitBtn = document.getElementById("submit-btn");
 
-            function updateForm(loginMode) {
-                isLogin = loginMode;
-                
-                // Show/Hide Role Select (Always shown during Registration)
-                roleSelect.parentElement.classList.toggle('hidden', loginMode);
-                // Toggle the Full Name container visibility
-                nameContainer.classList.toggle('hidden', loginMode); 
+        let isLogin = true;
 
-                if (isLogin) {
-                    showLoginBtn.classList.replace('btn-secondary', 'btn-primary');
-                    showRegisterBtn.classList.replace('btn-primary', 'btn-secondary');
-                    
-                    nameInput.required = false;
-
-                    rollnoContainer.classList.add('hidden'); 
-                    rollnoInput.required = false;
-
-                    submitBtn.textContent = 'Login';
-                    authForm.onsubmit = handleLogin;
-                    roleSelect.removeEventListener('change', updateRegistrationFields);
-                } else {
-                    showRegisterBtn.classList.replace('btn-secondary', 'btn-primary');
-                    showLoginBtn.classList.replace('btn-primary', 'btn-secondary');
-
-                    nameInput.required = true;
-
-                    submitBtn.textContent = 'Register';
-                    authForm.onsubmit = handleRegister;
-
-                    // Initial state for Register (defaults to Student)
-                    updateRegistrationFields(roleSelect.value);
-                    
-                    // Add listener to role change event
-                    roleSelect.addEventListener('change', (e) => updateRegistrationFields(e.target.value));
-                }
-            }
-
-            // Initial state: Login
-            updateForm(true); 
-
-            showLoginBtn.addEventListener('click', () => updateForm(true));
-            showRegisterBtn.addEventListener('click', () => updateForm(false));
+        function updateRegistrationFields(selectedRole) {
+          if (selectedRole === "student") {
+            rollnoContainer.classList.remove("hidden");
+            rollnoInput.required = true;
+            rollnoInput.value = ""; // Clear for new input
+          } else {
+            rollnoContainer.classList.add("hidden");
+            rollnoInput.required = false;
+            // Important: Set rollno to a dummy value so it's sent to the backend but is not an empty string
+            rollnoInput.value = "N/A";
+          }
         }
 
-        // =========================================================================
-        // ADMIN DASHBOARD LOGIC (Acts like an 'admin.js' module)
-        // =========================================================================
-        
-        let qrCodeInstance = null; // Holds the QRCode object
+        function updateForm(loginMode) {
+          isLogin = loginMode;
 
-        function renderAdminDashboard() {
-            contentDiv.innerHTML = `
+          // Show/Hide Role Select (Always shown during Registration)
+          roleSelect.parentElement.classList.toggle("hidden", loginMode);
+          // Toggle the Full Name container visibility
+          nameContainer.classList.toggle("hidden", loginMode);
+
+          if (isLogin) {
+            showLoginBtn.classList.replace("btn-secondary", "btn-primary");
+            showRegisterBtn.classList.replace("btn-primary", "btn-secondary");
+
+            nameInput.required = false;
+
+            rollnoContainer.classList.add("hidden");
+            rollnoInput.required = false;
+
+            submitBtn.textContent = "Login";
+            authForm.onsubmit = handleLogin;
+            roleSelect.removeEventListener("change", updateRegistrationFields);
+          } else {
+            showRegisterBtn.classList.replace("btn-secondary", "btn-primary");
+            showLoginBtn.classList.replace("btn-primary", "btn-secondary");
+
+            nameInput.required = true;
+
+            submitBtn.textContent = "Register";
+            authForm.onsubmit = handleRegister;
+
+            // Initial state for Register (defaults to Student)
+            updateRegistrationFields(roleSelect.value);
+
+            // Add listener to role change event
+            roleSelect.addEventListener("change", (e) =>
+              updateRegistrationFields(e.target.value)
+            );
+          }
+        }
+
+        // Initial state: Login
+        updateForm(true);
+
+        showLoginBtn.addEventListener("click", () => updateForm(true));
+        showRegisterBtn.addEventListener("click", () => updateForm(false));
+      }
+
+      // =========================================================================
+      // ADMIN DASHBOARD LOGIC (Acts like an 'admin.js' module)
+      // =========================================================================
+
+      let qrCodeInstance = null; // Holds the QRCode object
+
+      function renderAdminDashboard() {
+        contentDiv.innerHTML = `
                 <h2 class="text-3xl font-bold text-gray-900 mb-6 border-b pb-2">Admin Dashboard</h2>
                 
                 <div class="grid md:grid-cols-2 gap-8 mb-8">
@@ -409,73 +413,86 @@
                         <!-- Records Table will be injected here -->
                     </div>
                 </div>
+                <button class="excel-btn" onclick="exportTableToExcel()">Export to Excel</button>
             `;
-            
-            document.getElementById('create-session-form').onsubmit = handleCreateSession;
-            fetchAdminData();
+
+        document.getElementById("create-session-form").onsubmit =
+          handleCreateSession;
+        fetchAdminData();
+      }
+
+      async function handleCreateSession(e) {
+        e.preventDefault();
+        const class_name = e.target.class_name.value;
+        const class_code = e.target.class_code.value;
+
+        const data = await apiFetch("/admin/create_session", {
+          method: "POST",
+          body: JSON.stringify({ class_name, class_code }),
+        });
+
+        if (data) {
+          generateQrCode(data.qr_token);
+          showMessage(
+            "Session Created",
+            `A new session for ${class_code} is active. Share the QR code with students.`
+          );
+          e.target.reset();
+          fetchAdminData();
+        }
+      }
+
+      function generateQrCode(token) {
+        const qrDiv = document.getElementById("qrcode");
+        const tokenDisplay = document.getElementById("qr-token-display");
+
+        // Clear previous QR code
+        qrDiv.innerHTML = "";
+        qrCodeInstance = new QRCode(qrDiv, {
+          text: token,
+          width: 200,
+          height: 200,
+          colorDark: "#1f2937",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H,
+        });
+
+        tokenDisplay.textContent = `Token: ${token}`;
+      }
+
+      async function fetchAdminData() {
+        const data = await apiFetch("/admin/attendance", { method: "GET" });
+
+        if (data) {
+          renderStatsTable(data.stats);
+          renderRecordsTable(data.records);
+
+          if (data.current_qr_token && !qrCodeInstance) {
+            generateQrCode(data.current_qr_token);
+          } else if (!data.current_qr_token) {
+            const qrDiv = document.getElementById("qrcode");
+            qrDiv.innerHTML =
+              '<p class="text-gray-500">No active session found. Create one above.</p>';
+            document.getElementById("qr-token-display").textContent = "";
+          }
+        }
+      }
+
+      function renderStatsTable(stats) {
+        const container = document.getElementById("stats-table-container");
+        if (stats.length === 0) {
+          container.innerHTML =
+            '<p class="text-gray-500">No student data available. Ask students to register.</p>';
+          return;
         }
 
-        async function handleCreateSession(e) {
-            e.preventDefault();
-            const class_name = e.target.class_name.value;
-            const class_code = e.target.class_code.value;
-
-            const data = await apiFetch('/admin/create_session', {
-                method: 'POST',
-                body: JSON.stringify({ class_name, class_code })
-            });
-
-            if (data) {
-                generateQrCode(data.qr_token);
-                showMessage('Session Created', `A new session for ${class_code} is active. Share the QR code with students.`);
-                e.target.reset();
-                fetchAdminData();
-            }
+        function exportTableToExcel() {
+          let table = document.getElementById("attendanceTable");
+          let wb = XLSX.utils.table_to_book(table);
+          XLSX.writeFile(wb, "attendance.xlsx");
         }
 
-        function generateQrCode(token) {
-            const qrDiv = document.getElementById('qrcode');
-            const tokenDisplay = document.getElementById('qr-token-display');
-            
-            // Clear previous QR code
-            qrDiv.innerHTML = '';
-            qrCodeInstance = new QRCode(qrDiv, {
-                text: token,
-                width: 200,
-                height: 200,
-                colorDark : "#1f2937",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
-
-            tokenDisplay.textContent = `Token: ${token}`;
-        }
-        
-        async function fetchAdminData() {
-            const data = await apiFetch('/admin/attendance', { method: 'GET' });
-
-            if (data) {
-                renderStatsTable(data.stats);
-                renderRecordsTable(data.records);
-
-                if (data.current_qr_token && !qrCodeInstance) {
-                    generateQrCode(data.current_qr_token);
-                } else if (!data.current_qr_token) {
-                    const qrDiv = document.getElementById('qrcode');
-                    qrDiv.innerHTML = '<p class="text-gray-500">No active session found. Create one above.</p>';
-                    document.getElementById('qr-token-display').textContent = '';
-                }
-            }
-        }
-
-        function renderStatsTable(stats) {
-            const container = document.getElementById('stats-table-container');
-            if (stats.length === 0) {
-                container.innerHTML = '<p class="text-gray-500">No student data available. Ask students to register.</p>';
-                return;
-            }
-
-            const tableHTML = `
+        const tableHTML = `
                 <table class="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
                     <thead class="bg-indigo-600 text-white">
                         <tr>
@@ -486,28 +503,43 @@
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                        ${stats.map(stat => `
+                        ${stats
+                          .map(
+                            (stat) => `
                             <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${stat.name}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${stat.attended}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${stat.total}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${stat.percentage < 50 ? 'text-red-600' : 'text-green-600'}">${stat.percentage}%</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${
+                                  stat.name
+                                }</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${
+                                  stat.attended
+                                }</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${
+                                  stat.total
+                                }</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${
+                                  stat.percentage < 50
+                                    ? "text-red-600"
+                                    : "text-green-600"
+                                }">${stat.percentage}%</td>
                             </tr>
-                        `).join('')}
+                        `
+                          )
+                          .join("")}
                     </tbody>
                 </table>
             `;
-            container.innerHTML = tableHTML;
+        container.innerHTML = tableHTML;
+      }
+
+      function renderRecordsTable(records) {
+        const container = document.getElementById("records-table-container");
+        if (records.length === 0) {
+          container.innerHTML =
+            '<p class="text-gray-500">No attendance records yet.</p>';
+          return;
         }
 
-        function renderRecordsTable(records) {
-            const container = document.getElementById('records-table-container');
-            if (records.length === 0) {
-                container.innerHTML = '<p class="text-gray-500">No attendance records yet.</p>';
-                return;
-            }
-
-            const tableHTML = `
+        const tableHTML = `
                 <table class="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
                     <thead class="bg-gray-100 text-gray-700">
                         <tr>
@@ -521,59 +553,91 @@
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                        ${records.map(record => `
+                        ${records
+                          .map(
+                            (record) => `
                             <tr class="hover:bg-gray-50" data-id="${record.id}">
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">${record.student_name}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${record.roll_no || 'N/A'}</td> 
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${record.class_name}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${record.class_code}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">${
+                                  record.student_name
+                                }</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${
+                                  record.roll_no || "N/A"
+                                }</td> 
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${
+                                  record.class_name
+                                }</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${
+                                  record.class_code
+                                }</td>
                                 <td class="px-4 py-3 whitespace-nowrap">
-                                    <span class="status-display font-semibold ${record.status === 'Present' ? 'text-green-600' : 'text-red-600'}">
+                                    <span class="status-display font-semibold ${
+                                      record.status === "Present"
+                                        ? "text-green-600"
+                                        : "text-red-600"
+                                    }">
                                         ${record.status}
                                     </span>
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500">${new Date(record.timestamp).toLocaleString()}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500">${new Date(
+                                  record.timestamp
+                                ).toLocaleString()}</td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                                    <select class="status-select input-field p-1 text-sm bg-white" onchange="handleStatusChange(${record.id}, this.value)">
-                                        <option value="Present" ${record.status === 'Present' ? 'selected' : ''}>Present</option>
-                                        <option value="Absent" ${record.status === 'Absent' ? 'selected' : ''}>Absent</option>
+                                    <select class="status-select input-field p-1 text-sm bg-white" onchange="handleStatusChange(${
+                                      record.id
+                                    }, this.value)">
+                                        <option value="Present" ${
+                                          record.status === "Present"
+                                            ? "selected"
+                                            : ""
+                                        }>Present</option>
+                                        <option value="Absent" ${
+                                          record.status === "Absent"
+                                            ? "selected"
+                                            : ""
+                                        }>Absent</option>
                                     </select>
                                 </td>
                             </tr>
-                        `).join('')}
+                        `
+                          )
+                          .join("")}
                     </tbody>
                 </table>
             `;
-            container.innerHTML = tableHTML;
+        container.innerHTML = tableHTML;
+      }
+
+      async function handleStatusChange(recordId, newStatus) {
+        const data = await apiFetch("/admin/update_attendance", {
+          method: "POST",
+          body: JSON.stringify({ record_id: recordId, status: newStatus }),
+        });
+
+        if (data) {
+          // Quick UI update (before full re-fetch)
+          const row = document.querySelector(`tr[data-id="${recordId}"]`);
+          if (row) {
+            const statusSpan = row.querySelector(".status-display");
+            statusSpan.textContent = newStatus;
+            statusSpan.classList.remove("text-green-600", "text-red-600");
+            statusSpan.classList.add(
+              newStatus === "Present" ? "text-green-600" : "text-red-600"
+            );
+          }
+          showMessage(
+            "Update Success",
+            `Attendance for record ID ${recordId} set to ${newStatus}.`
+          );
+          fetchAdminData();
         }
+      }
 
-        async function handleStatusChange(recordId, newStatus) {
-            const data = await apiFetch('/admin/update_attendance', {
-                method: 'POST',
-                body: JSON.stringify({ record_id: recordId, status: newStatus })
-            });
+      // =========================================================================
+      // STUDENT DASHBOARD LOGIC (Acts like a 'student.js' module)
+      // =========================================================================
 
-            if (data) {
-                // Quick UI update (before full re-fetch)
-                const row = document.querySelector(`tr[data-id="${recordId}"]`);
-                if (row) {
-                    const statusSpan = row.querySelector('.status-display');
-                    statusSpan.textContent = newStatus;
-                    statusSpan.classList.remove('text-green-600', 'text-red-600');
-                    statusSpan.classList.add(newStatus === 'Present' ? 'text-green-600' : 'text-red-600');
-                }
-                showMessage('Update Success', `Attendance for record ID ${recordId} set to ${newStatus}.`);
-                fetchAdminData();
-            }
-        }
-
-
-        // =========================================================================
-        // STUDENT DASHBOARD LOGIC (Acts like a 'student.js' module)
-        // =========================================================================
-
-        function renderStudentDashboard() {
-            contentDiv.innerHTML = `
+      function renderStudentDashboard() {
+        contentDiv.innerHTML = `
                 <h2 class="text-3xl font-bold text-gray-900 mb-6 border-b pb-2">Student Dashboard</h2>
                 
                 <div class="grid md:grid-cols-2 gap-8 mb-8">
@@ -604,103 +668,120 @@
                     </div>
                 </div>
             `;
-            
-            // Attach event listeners to the new buttons
-            document.getElementById('start-scan-btn').addEventListener('click', startQrScanner);
-            document.getElementById('stop-scan-btn').addEventListener('click', () => stopQrScanner(false));
-            
-            // Fetch stats immediately
-            fetchStudentStats(user.user_id);
+
+        // Attach event listeners to the new buttons
+        document
+          .getElementById("start-scan-btn")
+          .addEventListener("click", startQrScanner);
+        document
+          .getElementById("stop-scan-btn")
+          .addEventListener("click", () => stopQrScanner(false));
+
+        // Fetch stats immediately
+        fetchStudentStats(user.user_id);
+      }
+
+      function startQrScanner() {
+        if (qrCodeScanner) return;
+
+        const startBtn = document.getElementById("start-scan-btn");
+        const stopBtn = document.getElementById("stop-scan-btn");
+        const readerDiv = document.getElementById("reader");
+        const scanStatus = document.getElementById("scan-status");
+
+        // Update UI to reflect scanning state
+        startBtn.classList.add("hidden");
+        stopBtn.classList.remove("hidden");
+        readerDiv.style.display = "block";
+        scanStatus.textContent = "Requesting camera access...";
+
+        qrCodeScanner = new Html5QrcodeScanner(
+          "reader",
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          false
+        );
+
+        const onScanSuccess = (decodedText, decodedResult) => {
+          handleMarkAttendance(decodedText);
+        };
+
+        const onScanFailure = (error) => {
+          if (
+            error.includes("NotAllowedError") ||
+            error.includes("NotFoundError")
+          ) {
+            scanStatus.textContent =
+              "Error: Camera access denied or not found. Please enable camera permissions.";
+          } else {
+            scanStatus.textContent = "Scanning for QR Code...";
+          }
+        };
+
+        qrCodeScanner
+          .render(onScanSuccess, onScanFailure)
+          .then(() => {
+            scanStatus.textContent = "Scanning for QR Code...";
+          })
+          .catch((err) => {
+            scanStatus.textContent =
+              "Error starting camera. Check permissions.";
+            stopQrScanner(true);
+          });
+      }
+
+      async function handleMarkAttendance(qr_token) {
+        const data = await apiFetch("/student/mark_attendance", {
+          method: "POST",
+          body: JSON.stringify({ student_id: user.user_id, qr_token }),
+        });
+
+        if (data) {
+          showMessage("Attendance Marked!", data.message);
+          fetchStudentStats(user.user_id);
         }
+      }
 
-        function startQrScanner() {
-            if (qrCodeScanner) return;
-            
-            const startBtn = document.getElementById('start-scan-btn');
-            const stopBtn = document.getElementById('stop-scan-btn');
-            const readerDiv = document.getElementById('reader');
-            const scanStatus = document.getElementById('scan-status');
+      async function fetchStudentStats(studentId) {
+        const data = await apiFetch(`/student/stats/${studentId}`, {
+          method: "GET",
+        });
+        const statsContent = document.getElementById("stats-content");
 
-            // Update UI to reflect scanning state
-            startBtn.classList.add('hidden');
-            stopBtn.classList.remove('hidden');
-            readerDiv.style.display = 'block';
-            scanStatus.textContent = 'Requesting camera access...';
+        if (data && statsContent) {
+          const percentageColor =
+            data.percentage >= 50 ? "text-green-600" : "text-red-600";
 
-            qrCodeScanner = new Html5QrcodeScanner(
-                "reader", 
-                { fps: 10, qrbox: { width: 250, height: 250 } }, 
-                false
-            );
-
-            const onScanSuccess = (decodedText, decodedResult) => {
-                handleMarkAttendance(decodedText);
-            };
-
-            const onScanFailure = (error) => {
-                if (error.includes("NotAllowedError") || error.includes("NotFoundError")) {
-                    scanStatus.textContent = 'Error: Camera access denied or not found. Please enable camera permissions.';
-                } else {
-                    scanStatus.textContent = 'Scanning for QR Code...';
-                }
-            };
-            
-            qrCodeScanner.render(onScanSuccess, onScanFailure).then(() => {
-                 scanStatus.textContent = 'Scanning for QR Code...';
-            }).catch(err => {
-                scanStatus.textContent = 'Error starting camera. Check permissions.';
-                stopQrScanner(true);
-            });
-        }
-
-        async function handleMarkAttendance(qr_token) {
-            const data = await apiFetch('/student/mark_attendance', {
-                method: 'POST',
-                body: JSON.stringify({ student_id: user.user_id, qr_token })
-            });
-
-            if (data) {
-                showMessage('Attendance Marked!', data.message);
-                fetchStudentStats(user.user_id); 
-            }
-        }
-
-        async function fetchStudentStats(studentId) {
-            const data = await apiFetch(`/student/stats/${studentId}`, { method: 'GET' });
-            const statsContent = document.getElementById('stats-content');
-
-            if (data && statsContent) {
-                const percentageColor = data.percentage >= 50 ? 'text-green-600' : 'text-red-600';
-                
-                statsContent.innerHTML = `
-                    <p><span class="font-bold text-indigo-700">Roll Number:</span> ${user.rollno || 'N/A'}</p> 
-                    <p><span class="font-bold text-indigo-700">Total Classes:</span> ${data.total_classes}</p>
-                    <p><span class="font-bold text-green-700">Attended:</span> ${data.attended}</p>
-                    <p><span class="font-bold text-red-700">Missed:</span> ${data.missed}</p>
-                    <p class="pt-4 text-2xl font-extrabold ${percentageColor}">Attendance Rate: ${data.percentage}%</p>
+          statsContent.innerHTML = `
+                    <p><span class="font-bold text-indigo-700">Roll Number:</span> ${
+                      user.rollno || "N/A"
+                    }</p> 
+                    <p><span class="font-bold text-indigo-700">Total Classes:</span> ${
+                      data.total_classes
+                    }</p>
+                    <p><span class="font-bold text-green-700">Attended:</span> ${
+                      data.attended
+                    }</p>
+                    <p><span class="font-bold text-red-700">Missed:</span> ${
+                      data.missed
+                    }</p>
+                    <p class="pt-4 text-2xl font-extrabold ${percentageColor}">Attendance Rate: ${
+            data.percentage
+          }%</p>
                 `;
-            } else if(statsContent) {
-                statsContent.innerHTML = '<p class="text-gray-500">Could not load statistics.</p>';
-            }
+        } else if (statsContent) {
+          statsContent.innerHTML =
+            '<p class="text-gray-500">Could not load statistics.</p>';
         }
+      }
 
+      // =========================================================================
+      // INITIALIZATION
+      // =========================================================================
 
-        // =========================================================================
-        // INITIALIZATION
-        // =========================================================================
+      logoutBtn.addEventListener("click", handleLogout);
 
-        logoutBtn.addEventListener('click', handleLogout);
-
-        // Run navigation on load to show the correct view (Auth, Admin, or Student)
-        navigate();
-
+      // Run navigation on load to show the correct view (Auth, Admin, or Student)
+      navigate();
     </script>
-</body>
-
+  </body>
 </html>
-
-
-
-
-
-

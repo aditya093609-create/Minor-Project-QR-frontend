@@ -12,9 +12,12 @@
       rel="stylesheet"
     />
     <!-- QR Code Generator CDN (for Admin view) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
+      type="text/javascript"
+    ></script>
     <!-- HTML5 QR Code Scanner CDN (for Student view) -->
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css" />
   </head>
@@ -122,7 +125,7 @@
           return null;
         }
       }
-
+      /* Stops the active QR scanner and resets control buttons. */
       /** * Stops the active QR scanner and resets control buttons. */
       function stopQrScanner(silent = false) {
         const startBtn = document.getElementById("start-scan-btn");
@@ -130,11 +133,26 @@
         const readerDiv = document.getElementById("reader");
         const scanStatus = document.getElementById("scan-status");
 
-        if (qrCodeScanner) {
-          qrCodeScanner
+        // Store a reference to the active scanner
+        const scannerToStop = qrCodeScanner;
+
+        // 🌟 CRITICAL FIX 1: Immediately clear the global reference
+        // This allows startQrScanner() or handleLogout() to proceed without waiting.
+        qrCodeScanner = null;
+
+        // 1. IMMEDIATE UI UPDATE: Transition the buttons and hide the container
+        if (startBtn) startBtn.classList.remove("hidden");
+        if (stopBtn) stopBtn.classList.add("hidden");
+        if (readerDiv) readerDiv.classList.add("hidden"); // Use class to hide
+        if (scanStatus) scanStatus.textContent = "Stopping scanner...";
+
+        if (scannerToStop) {
+          // 2. Perform asynchronous stop on the old instance
+          scannerToStop
             .stop()
             .then(() => {
-              if (!silent) console.log("QR Code scanning stopped.");
+              if (!silent)
+                console.log("QR Code scanning stopped successfully.");
             })
             .catch((err) => {
               if (!silent)
@@ -142,17 +160,19 @@
                   "Scanner stop error (possibly already stopped):",
                   err
                 );
+            })
+            .finally(() => {
+              // Final Cleanup: Clear container HTML and confirm status
+              if (readerDiv) readerDiv.innerHTML = ""; // 🌟 CRITICAL FIX 2: Wipe the container clean
+              if (scanStatus) scanStatus.textContent = "Scanner is inactive.";
             });
-          qrCodeScanner = null;
+        } else {
+          // If no scanner was active, just ensure the UI is in the default state
+          if (readerDiv) readerDiv.innerHTML = "";
+          if (scanStatus) scanStatus.textContent = "Scanner is inactive.";
         }
-
-        // Update UI
-        if (startBtn) startBtn.classList.remove("hidden");
-        if (stopBtn) stopBtn.classList.add("hidden");
-        if (readerDiv) readerDiv.style.display = "none";
-        if (scanStatus) scanStatus.textContent = "Scanner is inactive.";
       }
-
+      /** Updates the header and navigates to the correct dashboard based on user state. */
       /** Updates the header and navigates to the correct dashboard based on user state. */
       function navigate() {
         // Always stop scanner before rendering a new view
@@ -160,10 +180,16 @@
         contentDiv.innerHTML = "";
 
         if (user) {
-          // Display Roll No. if available, otherwise just Name and Role
-          const rollDisplay = user.rollno ? ` (${user.rollno})` : "";
+          // 🌟 CRITICAL FIX: Only display the roll number if the user is a student
+          // AND the rollno is a non-empty, non-placeholder value.
+          let rollDisplay = "";
+          if (user.role === "student" && user.rollno && user.rollno !== "N/A") {
+            rollDisplay = ` (${user.rollno})`;
+          }
+
           welcomeMessage.textContent = `Welcome, ${user.name}${rollDisplay} (${user.role})`;
           logoutBtn.classList.remove("hidden");
+
           if (user.role === "admin") {
             renderAdminDashboard();
           } else if (user.role === "student") {
@@ -237,10 +263,17 @@
       }
 
       function handleLogout() {
+        // 1. Call stopQrScanner (silent = true) to immediately reset scanner state
         stopQrScanner(true);
+
+        // 2. Clear user state and localStorage
         user = null;
         localStorage.removeItem("user");
+
+        // 3. Navigate to the login screen
         navigate();
+
+        // 4. Show confirmation message
         showMessage("Logged Out", "You have been successfully logged out.");
       }
 
@@ -409,15 +442,19 @@
                 <!-- Detailed Attendance Records -->
                 <div class="mb-8">
                     <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">All Attendance Records</h3>
+                    <button id="export-excel-btn" class="btn-secondary text-sm">Export to Excel</button> 
+                    </div>
                     <div id="records-table-container" class="overflow-x-auto">
                         <!-- Records Table will be injected here -->
                     </div>
                 </div>
-                <button class="excel-btn" onclick="exportTableToExcel()">Export to Excel</button>
             `;
 
         document.getElementById("create-session-form").onsubmit =
           handleCreateSession;
+        document
+          .getElementById("export-excel-btn")
+          .addEventListener("click", exportDataFromBackend);
         fetchAdminData();
       }
 
@@ -460,6 +497,109 @@
         tokenDisplay.textContent = `Token: ${token}`;
       }
 
+      // =========================================================================
+      // EXPORT UTILITY FUNCTION
+      // =========================================================================
+      /**
+       * Converts an HTML table (within a specified container) to a downloadable CSV file.
+       */
+      // =========================================================================
+      // EXPORT DATA DIRECTLY FROM BACKEND
+      // =========================================================================
+      /**
+       * Fetches all attendance records from the backend API and exports the data
+       * as a downloadable CSV file, which opens in Excel.
+       */
+      async function exportDataFromBackend(
+        filename = "All_Attendance_Records"
+      ) {
+        showMessage(
+          "Exporting...",
+          "Fetching all records from the server...",
+          "bg-yellow-500"
+        );
+
+        try {
+          // Assume the endpoint to get ALL records is /admin/records
+          const records = await apiFetch("/admin/records", { method: "GET" });
+
+          if (!records || records.length === 0) {
+            showMessage(
+              "Export Failed",
+              "No attendance records found on the server.",
+              "bg-red-500"
+            );
+            return;
+          }
+
+          // --- Data Processing: Convert JSON to CSV ---
+
+          // 1. Determine Headers: Use keys from the first object
+          const headers = Object.keys(records[0]).map((header) => {
+            // Capitalize first letter and replace underscores with spaces for readability
+            return (
+              header.charAt(0).toUpperCase() +
+              header.slice(1).replace(/_/g, " ")
+            );
+          });
+
+          // 2. Build the CSV content
+          let csv = [];
+
+          // Add header row first, ensuring proper quoting
+          csv.push(headers.map((h) => `"${h}"`).join(","));
+
+          // Add data rows
+          records.forEach((record) => {
+            const row = headers.map((header) => {
+              const key = header.toLowerCase().replace(/ /g, "_");
+              let data = String(record[key] !== undefined ? record[key] : "");
+
+              // Escape quotes inside data by doubling them, then wrap the cell in quotes
+              data = data.replace(/"/g, '""').trim();
+              return `"${data}"`;
+            });
+            csv.push(row.join(","));
+          });
+
+          const csvFile = csv.join("\n");
+
+          // --- Download: Create Blob and Trigger Download ---
+
+          const blob = new Blob([csvFile], { type: "text/csv;charset=utf-8;" });
+          const link = document.createElement("a");
+
+          if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename + ".csv");
+            link.style.visibility = "hidden";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showMessage(
+              "Export Complete",
+              `Successfully exported ${records.length} records to ${filename}.csv.`,
+              "bg-green-500"
+            );
+          } else {
+            showMessage(
+              "Export Failed",
+              "Your browser does not support automatic downloads.",
+              "bg-red-500"
+            );
+          }
+        } catch (error) {
+          console.error("Export Error:", error);
+          showMessage(
+            "Export Failed",
+            "An error occurred while fetching or processing data.",
+            "bg-red-500"
+          );
+        }
+      }
+
       async function fetchAdminData() {
         const data = await apiFetch("/admin/attendance", { method: "GET" });
 
@@ -484,12 +624,6 @@
           container.innerHTML =
             '<p class="text-gray-500">No student data available. Ask students to register.</p>';
           return;
-        }
-
-        function exportTableToExcel() {
-          let table = document.getElementById("attendanceTable");
-          let wb = XLSX.utils.table_to_book(table);
-          XLSX.writeFile(wb, "attendance.xlsx");
         }
 
         const tableHTML = `
@@ -654,7 +788,7 @@
                             </div>
 
                             <!-- QR Scanner Container -->
-                            <div id="reader" class="my-4"></div>
+                            <div id="reader" class="my-4 hidden"></div>
                             <p id="scan-status" class="text-center text-sm font-medium text-gray-500">Scanner is inactive.</p>
                         </div>
                     </div>
@@ -681,7 +815,9 @@
         fetchStudentStats(user.user_id);
       }
 
+      /** * Stops the active QR scanner and resets control buttons. */
       function startQrScanner() {
+        // Check global state cleared by stopQrScanner
         if (qrCodeScanner) return;
 
         const startBtn = document.getElementById("start-scan-btn");
@@ -692,9 +828,11 @@
         // Update UI to reflect scanning state
         startBtn.classList.add("hidden");
         stopBtn.classList.remove("hidden");
-        readerDiv.style.display = "block";
+        // CRITICAL: Remove the hidden class to show the container
+        if (readerDiv) readerDiv.classList.remove("hidden");
         scanStatus.textContent = "Requesting camera access...";
 
+        // Initialize the scanner instance
         qrCodeScanner = new Html5QrcodeScanner(
           "reader",
           { fps: 10, qrbox: { width: 250, height: 250 } },
@@ -725,6 +863,7 @@
           .catch((err) => {
             scanStatus.textContent =
               "Error starting camera. Check permissions.";
+            // If it fails to start, immediately reset the UI state
             stopQrScanner(true);
           });
       }
@@ -748,25 +887,34 @@
         const statsContent = document.getElementById("stats-content");
 
         if (data && statsContent) {
+          // Safely calculate corrected values based on backend data
+          const totalClasses = data.total_classes || 0;
+          // Cap attended at the total classes to prevent over-attendance
+          const attendedCapped = Math.min(data.attended || 0, totalClasses);
+
+          // Calculate Missed (will be 0 if attended > total)
+          const missedCapped = Math.max(0, totalClasses - attendedCapped);
+
+          // Calculate Percentage (will be max 100% if attended > total)
+          let percentageCapped = 0;
+          if (totalClasses > 0) {
+            percentageCapped = Math.min(
+              100,
+              Math.round((attendedCapped / totalClasses) * 100)
+            );
+          }
+
           const percentageColor =
-            data.percentage >= 50 ? "text-green-600" : "text-red-600";
+            percentageCapped >= 50 ? "text-green-600" : "text-red-600";
 
           statsContent.innerHTML = `
                     <p><span class="font-bold text-indigo-700">Roll Number:</span> ${
                       user.rollno || "N/A"
                     }</p> 
-                    <p><span class="font-bold text-indigo-700">Total Classes:</span> ${
-                      data.total_classes
-                    }</p>
-                    <p><span class="font-bold text-green-700">Attended:</span> ${
-                      data.attended
-                    }</p>
-                    <p><span class="font-bold text-red-700">Missed:</span> ${
-                      data.missed
-                    }</p>
-                    <p class="pt-4 text-2xl font-extrabold ${percentageColor}">Attendance Rate: ${
-            data.percentage
-          }%</p>
+                    <p><span class="font-bold text-indigo-700">Total Classes:</span> ${totalClasses}</p>
+                    <p><span class="font-bold text-green-700">Attended:</span> ${attendedCapped}</p>
+                    <p><span class="font-bold text-red-700">Missed:</span> ${missedCapped}</p>
+                    <p class="pt-4 text-2xl font-extrabold ${percentageColor}">Attendance Rate: ${percentageCapped}%</p>
                 `;
         } else if (statsContent) {
           statsContent.innerHTML =
@@ -785,4 +933,3 @@
     </script>
   </body>
 </html>
-

@@ -12,10 +12,7 @@
       rel="stylesheet"
     />
     <!-- QR Code Generator CDN (for Admin view) -->
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
-      type="text/javascript"
-    ></script>
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
     <!-- HTML5 QR Code Scanner CDN (for Student view) -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -60,7 +57,7 @@
       // CORE UTILITIES & STATE MANAGEMENT (Acts like a global 'app.js' module)
       // =========================================================================
 
-      const API_BASE = "https://minor-project-qr-backend-1.onrender.com";
+      const API_BASE = "http://127.0.0.1:5000";
 
       // Global State
       let user = JSON.parse(localStorage.getItem("user")) || null;
@@ -206,12 +203,28 @@
       // AUTHENTICATION/LOGIN LOGIC (Acts like a 'login.js' module)
       // =========================================================================
 
-      function handleAuthSuccess(userData) {
+      // index.html: Around line 187
+
+      function handleAuthSuccess(loginResponseData) {
+        // 🌟 FIX: The API now returns a nested object: { message: '...', user: {...} }
+        // We must extract the inner 'user' object to maintain the application state.
+        const userData = loginResponseData.user;
+
+        // Check if critical fields exist before storing/navigating
+        if (!userData || !userData.role || !userData.class_id) {
+          showMessage(
+            "Login Error",
+            "User data is incomplete or missing class ID. Cannot load dashboard."
+          );
+          return;
+        }
+
         user = userData;
         localStorage.setItem("user", JSON.stringify(user));
         navigate();
       }
 
+      // index.html: Also update handleLogin (around line 199) to pass the full response data
       async function handleLogin(e) {
         e.preventDefault();
         const username = e.target.username.value;
@@ -223,7 +236,7 @@
         });
 
         if (data) {
-          // Show message, then call handleAuthSuccess only AFTER modal closes
+          // Pass the full data object (containing 'message' and 'user')
           showMessage("Success", data.message || "Login successful!", () =>
             handleAuthSuccess(data)
           );
@@ -238,12 +251,21 @@
         const role = e.target.role.value;
         // Send rollno regardless, backend will ignore it if role is admin
         const rollno = e.target.rollno.value;
+        const class_id = e.target.class_id.value;
+        const semester = e.target.semester.value;
 
         const data = await apiFetch("/register", {
           method: "POST",
-          body: JSON.stringify({ name, username, password, role, rollno }),
+          body: JSON.stringify({
+            name,
+            username,
+            password,
+            role,
+            rollno,
+            class_id,
+            semester,
+          }),
         });
-
         if (data) {
           const authForm = document.getElementById("auth-form");
           if (authForm) authForm.reset();
@@ -284,7 +306,6 @@
                         <button id="show-login" class="flex-1 btn-primary">Login</button>
                         <button id="show-register" class="flex-1 btn-secondary">Register</button>
                     </div>
-
                     <form id="auth-form" class="space-y-4 bg-gray-50 p-6 rounded-xl border border-gray-200">
                         <div id="role-select">
                             <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
@@ -294,22 +315,31 @@
                             </select>
                         </div>
                         
-                        <!-- Full Name Container (Toggled in JS) -->
                         <div id="name-container" class="hidden">
                             <label for="name" class="block text-sm font-medium text-gray-700">Full Name</label>
                             <input type="text" id="name" name="name" placeholder="" required class="input-field">
                         </div>
                         
-                        <!-- ROLL NUMBER INPUT CONTAINER (Toggled in JS) -->
                         <div id="rollno-container">
                             <label for="rollno" class="block text-sm font-medium text-gray-700">Roll Number</label>
                             <input type="text" id="rollno" name="rollno" placeholder="" required class="input-field">
+                        </div>
+
+                        <div id="classid-container">
+                            <label for="class_id" class="block text-sm font-medium text-gray-700">Class ID</label>
+                            <input type="text" id="class_id" name="class_id" placeholder="" required class="input-field">
                         </div>
 
                         <div>
                             <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
                             <input type="text" id="username" name="username" placeholder="" required class="input-field">
                         </div>
+                        
+                        <div id="semester-container" class="hidden">
+                            <label for="semester" class="block text-sm font-medium text-gray-700">Semester</label>
+                            <input type="text" id="semester" name="semester" placeholder="" required class="input-field">
+                        </div>
+
                         <div>
                             <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
                             <input type="password" id="password" name="password" placeholder="" required class="input-field">
@@ -331,29 +361,42 @@
 
         const rollnoContainer = document.getElementById("rollno-container");
         const rollnoInput = document.getElementById("rollno");
+        const classIdContainer = document.getElementById("classid-container");
+        const classIdInput = document.getElementById("class_id");
+        const semesterContainer = document.getElementById("semester-container");
+        const semesterInput = document.getElementById("semester");
         const submitBtn = document.getElementById("submit-btn");
 
         let isLogin = true;
-
         function updateRegistrationFields(selectedRole) {
           if (selectedRole === "student") {
+            // Student: Requires Roll No. and Semester
             rollnoContainer.classList.remove("hidden");
             rollnoInput.required = true;
-            rollnoInput.value = ""; // Clear for new input
+            rollnoInput.value = "";
+
+            // 🌟 SHOW SEMESTER FOR STUDENT 🌟
+            semesterContainer.classList.remove("hidden");
+            semesterInput.required = true;
+            semesterInput.value = "";
           } else {
+            // admin
+            // Admin: Does NOT require Roll No. or Semester
             rollnoContainer.classList.add("hidden");
             rollnoInput.required = false;
-            // Important: Set rollno to a dummy value so it's sent to the backend but is not an empty string
             rollnoInput.value = "N/A";
+
+            // 🌟 HIDE SEMESTER FOR ADMIN 🌟
+            semesterContainer.classList.add("hidden");
+            semesterInput.required = false;
+            semesterInput.value = "N/A"; // Must send a dummy value
           }
         }
-
         function updateForm(loginMode) {
           isLogin = loginMode;
 
           // Show/Hide Role Select (Always shown during Registration)
           roleSelect.parentElement.classList.toggle("hidden", loginMode);
-          // Toggle the Full Name container visibility
           nameContainer.classList.toggle("hidden", loginMode);
 
           if (isLogin) {
@@ -365,19 +408,30 @@
             rollnoContainer.classList.add("hidden");
             rollnoInput.required = false;
 
+            // 🚨 CRITICAL: Hide class_id and semester on LOGIN
+            classIdContainer.classList.add("hidden");
+            classIdInput.required = false;
+            semesterContainer.classList.add("hidden");
+            semesterInput.required = false;
+
             submitBtn.textContent = "Login";
             authForm.onsubmit = handleLogin;
             roleSelect.removeEventListener("change", updateRegistrationFields);
           } else {
+            // Register Mode
             showRegisterBtn.classList.replace("btn-secondary", "btn-primary");
             showLoginBtn.classList.replace("btn-primary", "btn-secondary");
 
             nameInput.required = true;
 
+            // 🌟 FIX: Show class_id on REGISTER 🌟
+            classIdContainer.classList.remove("hidden");
+            classIdInput.required = true;
+
             submitBtn.textContent = "Register";
             authForm.onsubmit = handleRegister;
 
-            // Initial state for Register (defaults to Student)
+            // Initial state for Register (defaults to Student, shows rollno/semester based on this)
             updateRegistrationFields(roleSelect.value);
 
             // Add listener to role change event
@@ -398,7 +452,35 @@
       // ADMIN DASHBOARD LOGIC (Acts like an 'admin.js' module)
       // =========================================================================
 
-      let qrCodeInstance = null; // Holds the QRCode object
+      let qrCodeInstance = null;
+
+      function generateQrCode(token) {
+        const qrDiv = document.getElementById("qrcode");
+        const tokenDisplay = document.getElementById("qr-token-display");
+
+        // 1. CRITICAL: Clear both the instance and the DIV content
+        if (qrCodeInstance) {
+          // qrcode.js does not have a destroy method, so we clear the DOM element directly.
+          qrCodeInstance = null;
+        }
+        qrDiv.innerHTML = ""; // Clear the previous canvas/image from the DOM
+
+        // 2. Display the token text
+        tokenDisplay.textContent = `Token: ${token}`;
+
+        // 3. Create a new instance
+        qrCodeInstance = new QRCode(qrDiv, {
+          text: token,
+          width: 200,
+          height: 200,
+          colorDark: "#1f2937",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H,
+        });
+
+        // Optional: Add a brief timeout to make sure the library has time to draw before any refresh
+        // Not strictly necessary, but helpful if the function is being called too rapidly.
+      } // Holds the QRCode object
 
       function renderAdminDashboard() {
         contentDiv.innerHTML = `
@@ -463,51 +545,26 @@
 
         const data = await apiFetch("/admin/create_session", {
           method: "POST",
-          body: JSON.stringify({ class_name, class_code }),
+          body: JSON.stringify({
+            class_name,
+            class_code,
+            class_id: user.class_id,
+          }),
         });
 
         if (data) {
-          generateQrCode(data.qr_token);
+          // 🚨 REMOVED: generateQrCode(data.qr_token);
+          // This is now handled by fetchAdminData()
           showMessage(
             "Session Created",
             `A new session for ${class_code} is active. Share the QR code with students.`
           );
           e.target.reset();
+          // CRITICAL: Call fetchAdminData to refresh the dashboard and generate the QR code
           fetchAdminData();
         }
       }
 
-      function generateQrCode(token) {
-        const qrDiv = document.getElementById("qrcode");
-        const tokenDisplay = document.getElementById("qr-token-display");
-
-        // Clear previous QR code
-        qrDiv.innerHTML = "";
-        qrCodeInstance = new QRCode(qrDiv, {
-          text: token,
-          width: 200,
-          height: 200,
-          colorDark: "#1f2937",
-          colorLight: "#ffffff",
-          correctLevel: QRCode.CorrectLevel.H,
-        });
-
-        tokenDisplay.textContent = `Token: ${token}`;
-      }
-
-      // =========================================================================
-      // EXPORT UTILITY FUNCTION
-      // =========================================================================
-      /**
-       * Converts an HTML table (within a specified container) to a downloadable CSV file.
-       */
-      // =========================================================================
-      // EXPORT DATA DIRECTLY FROM BACKEND
-      // =========================================================================
-      /**
-       * Fetches all attendance records from the backend API and exports the data
-       * as a downloadable CSV file, which opens in Excel.
-       */
       async function exportDataFromBackend(
         filename = "All_Attendance_Records"
       ) {
@@ -598,21 +655,60 @@
         }
       }
 
+      // index.html: Update fetchAdminData()
+
       async function fetchAdminData() {
-        const data = await apiFetch("/admin/attendance", { method: "GET" });
+        // CRITICAL CHECK: Ensure user object and class_id are available
+        if (!user || !user.class_id) {
+          // You should have a way to log out or prompt re-login here
+          console.error("User or Class ID missing from session.");
+          return;
+        }
+
+        // Must be POST to send class_id for filtering
+        const data = await apiFetch("/admin/attendance", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          // Send the class_id retrieved during login
+          body: JSON.stringify({ class_id: user.class_id }),
+        });
 
         if (data) {
-          renderStatsTable(data.stats);
-          renderRecordsTable(data.records);
+          // 🌟 FIX: Safely access stats and records, defaulting to empty array [] if undefined/null
+          const stats = data.stats || [];
+          const records = data.records || [];
 
-          if (data.current_qr_token && !qrCodeInstance) {
-            generateQrCode(data.current_qr_token);
-          } else if (!data.current_qr_token) {
-            const qrDiv = document.getElementById("qrcode");
+          // Call rendering functions with safe arrays
+          // This prevents the "Cannot read properties of undefined (reading 'length')" error
+          renderStatsTable(stats);
+          renderRecordsTable(records);
+
+          // 3. QR Code Generation Logic
+          const qrDiv = document.getElementById("qrcode");
+          const tokenDisplay = document.getElementById("qr-token-display");
+
+          // Ensure generateQrCode is a defined function in your JS file's global scope
+          if (typeof generateQrCode === "function" && data.current_qr_token) {
+            if (!qrCodeInstance) {
+              generateQrCode(data.current_qr_token);
+            }
+          } else if (data.current_qr_token) {
+            // If generateQrCode is not a function, just display the token
+            qrDiv.innerHTML = `<p class="text-lg text-green-600 font-bold">QR Token: ${data.current_qr_token}</p>`;
+          } else {
+            // No active session found. Clear display.
             qrDiv.innerHTML =
               '<p class="text-gray-500">No active session found. Create one above.</p>';
-            document.getElementById("qr-token-display").textContent = "";
+            tokenDisplay.textContent = "";
           }
+        } else {
+          // Handle API fetch failure gracefully
+          showMessage(
+            "Error",
+            "Failed to fetch dashboard data. Check backend server logs."
+          );
         }
       }
 
@@ -625,41 +721,55 @@
         }
 
         const tableHTML = `
-                <table class="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
-                    <thead class="bg-indigo-600 text-white">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Student Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Attended</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Total Classes</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Percentage</th>
+            <table class="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
+                <thead class="bg-indigo-600 text-white">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Student Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Roll Number</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Attended</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Total Classes</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Percentage</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Action</th> 
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    ${stats
+                      .map(
+                        (stat) => `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${
+                              stat.name
+                            }</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${
+                              stat.rollno || "N/A"
+                            }</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${
+                              stat.attended
+                            }</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${
+                              stat.total
+                            }</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${
+                              stat.percentage < 50
+                                ? "text-red-600"
+                                : "text-green-600"
+                            }">${stat.percentage}%</td>
+                            
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button 
+                                    onclick="handleDeleteStudent('${stat.id}')" 
+                                    class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
+                                >
+                                    Delete
+                                </button>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        ${stats
-                          .map(
-                            (stat) => `
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${
-                                  stat.name
-                                }</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${
-                                  stat.attended
-                                }</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${
-                                  stat.total
-                                }</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${
-                                  stat.percentage < 50
-                                    ? "text-red-600"
-                                    : "text-green-600"
-                                }">${stat.percentage}%</td>
-                            </tr>
-                        `
-                          )
-                          .join("")}
-                    </tbody>
-                </table>
-            `;
+                      `
+                      )
+                      .join("")}
+                </tbody>
+            </table>
+        `;
         container.innerHTML = tableHTML;
       }
 
@@ -761,6 +871,33 @@
             `Attendance for record ID ${recordId} set to ${newStatus}.`
           );
           fetchAdminData();
+        }
+      }
+
+      // index.html: Add this function to your <script> tag
+      async function handleDeleteStudent(student_id) {
+        if (!user || !user.class_id) {
+          showMessage("Error", "Missing Admin Class ID. Please re-login.");
+          return;
+        }
+
+        const data = await apiFetch("/admin/delete_student", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            student_id: student_id,
+            class_id: user.class_id, // Send class_id for server-side security check
+          }),
+        });
+
+        if (data.message) {
+          showMessage("Success", data.message);
+          // Refresh the dashboard data after successful deletion
+          await fetchAdminData();
+        } else {
+          showMessage("Error", data.error || "Failed to delete student.");
         }
       }
 

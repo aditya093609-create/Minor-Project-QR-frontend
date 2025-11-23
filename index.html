@@ -4,1115 +4,727 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>QR Attendance System</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Font: Inter -->
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
       rel="stylesheet"
     />
-    <!-- QR Code Generator CDN (for Admin view) -->
     <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
-    <!-- HTML5 QR Code Scanner CDN (for Student view) -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.4/minified/html5-qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css" /> 
+    
+    <style>
+      .input-field {
+        @apply w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150;
+      }
+      .btn-primary {
+        @apply bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition duration-150;
+      }
+      .btn-secondary {
+        @apply bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition duration-150;
+      }
+      /* Ensure the scanner area is visible and square */
+      #scanner-container {
+        width: 100%; 
+        aspect-ratio: 1 / 1; 
+        max-width: 400px;
+        margin-left: auto;
+        margin-right: auto;
+        background-color: black;
+      }
+    </style>
   </head>
-  <body class="min-h-screen flex items-center justify-center p-4">
-    <!-- Modal for Messages -->
-    <div
-      id="message-modal"
-      class="modal fixed inset-0 hidden items-center justify-center p-4"
-    >
-      <div class="bg-white card rounded-xl p-6 w-full max-w-sm">
-        <h3 id="modal-title" class="text-xl font-bold text-gray-800 mb-4"></h3>
-        <p id="modal-body" class="text-gray-600 mb-6"></p>
-        <button id="modal-close-btn" class="btn-primary w-full">Close</button>
+  <body class="min-h-screen flex items-center justify-center p-4 bg-gray-50 font-sans">
+    
+    <div id="message-modal" class="modal fixed inset-0 hidden items-center justify-center p-4 z-50">
+      <div class="bg-black opacity-50 absolute inset-0"></div>
+      <div class="bg-white card p-6 rounded-xl shadow-2xl z-10 max-w-sm w-full">
+        <h3 id="modal-title" class="text-xl font-bold mb-2"></h3>
+        <p id="modal-body" class="text-gray-700 mb-4"></p>
+        <button onclick="document.getElementById('message-modal').classList.add('hidden')" class="btn-primary w-full">OK</button>
       </div>
     </div>
-
-    <div id="app" class="w-full max-w-5xl">
-      <!-- Header -->
-      <header
-        class="bg-white card rounded-xl p-4 mb-6 flex justify-between items-center"
-      >
-        <h1 class="text-3xl font-extrabold text-indigo-700">Attendance QR</h1>
-        <div id="user-info" class="flex items-center space-x-4">
-          <span
-            id="welcome-message"
-            class="text-lg font-medium text-gray-600"
-          ></span>
-          <button id="logout-btn" class="hidden btn-secondary text-sm">
-            Logout
-          </button>
-        </div>
-      </header>
-
-      <!-- Main Content Area -->
-      <main id="content" class="bg-white card rounded-xl p-8"></main>
-    </div>
+    
+    <main id="app-container" class="w-full max-w-7xl">
+      <h1 class="text-center text-4xl font-extrabold text-indigo-700 my-8">Loading...</h1>
+    </main>
 
     <script>
       // =========================================================================
-      // CORE UTILITIES & STATE MANAGEMENT (Acts like a global 'app.js' module)
+      // GLOBAL CONFIGURATION & STATE
+      // =========================================================================
+      
+      // 🚨 IMPORTANT: Replace with your actual deployed IP/domain if not using localhost
+      const BASE_URL = "http://127.0.0.1:5000"; 
+      let user = JSON.parse(localStorage.getItem("user")) || null;
+      const appContainer = document.getElementById("app-container");
+      let qrCodeInstance = null;
+      let qrCodeScanner = null; // Global instance for HTML5 QR Code scanner
+
+      // =========================================================================
+      // UTILITIES
       // =========================================================================
 
-      const API_BASE = "https://minor-project-qr-backend-1.onrender.com";
-
-      // Global State
-      let user = JSON.parse(localStorage.getItem("user")) || null;
-      let qrCodeScanner = null;
-
-      // DOM Elements
-      const contentDiv = document.getElementById("content");
-      const logoutBtn = document.getElementById("logout-btn");
-      const welcomeMessage = document.getElementById("welcome-message");
-      const modal = document.getElementById("message-modal");
-      const modalTitle = document.getElementById("modal-title");
-      const modalBody = document.getElementById("modal-body");
-      const modalCloseBtn = document.getElementById("modal-close-btn");
-
-      /** Shows a custom styled message modal */
-      function showMessage(title, message, onModalClose = null) {
-        // Stop the scanner immediately, forcing restart via button
-        if (qrCodeScanner) {
-          stopQrScanner(true);
-        }
-
-        modalTitle.textContent = title;
-        modalBody.innerHTML = message.replace(/\n/g, "<br>");
-        modal.classList.remove("hidden");
-        modal.classList.add("flex");
-
-        modalCloseBtn.onclick = () => {
-          modal.classList.add("hidden");
-          modal.classList.remove("flex");
-          if (onModalClose) {
-            onModalClose(); // Execute callback after modal closes
-          }
-        };
+      function showMessage(title, body) {
+        document.getElementById("modal-title").textContent = title;
+        document.getElementById("modal-body").textContent = body;
+        document.getElementById("message-modal").classList.remove("hidden");
       }
 
-      /** Handles API requests with proper JSON headers and error handling. */
-      async function apiFetch(endpoint, options = {}) {
+      async function apiFetch(url, options = {}) {
         try {
-          const response = await fetch(`${API_BASE}${endpoint}`, {
+          const response = await fetch(BASE_URL + url, {
             ...options,
             headers: {
               "Content-Type": "application/json",
               ...options.headers,
             },
           });
-
           const data = await response.json();
-
           if (!response.ok) {
-            const errorMessage =
-              data.error || data.message || `API Error: ${response.statusText}`;
-            showMessage("Error", errorMessage);
+            showMessage("Error", data.error || "An unknown error occurred.");
             return null;
           }
           return data;
         } catch (error) {
-          console.error("Network or Parsing Error:", error);
-          showMessage(
-            "Network Error",
-            "Could not connect to the backend server. Make sure the Flask app is running on 127.0.0.1:5000."
-          );
+          console.error("API Fetch Error:", error);
+          showMessage("Network Error", "Could not connect to the server.");
           return null;
-        }
-      }
-      /* Stops the active QR scanner and resets control buttons. */
-      /** * Stops the active QR scanner and resets control buttons. */
-      /** Stops the active QR scanner and resets control buttons. */
-      function stopQrScanner(silent = false) {
-        const startBtn = document.getElementById("start-scan-btn");
-        const stopBtn = document.getElementById("stop-scan-btn");
-        const readerDiv = document.getElementById("reader");
-        const scanStatus = document.getElementById("scan-status");
-
-        const scannerToStop = qrCodeScanner;
-
-        // CRITICAL: Clear the global reference immediately
-        qrCodeScanner = null;
-
-        // 1. IMMEDIATE UI UPDATE
-        if (startBtn) startBtn.classList.remove("hidden");
-        if (stopBtn) stopBtn.classList.add("hidden");
-
-        if (scannerToStop) {
-          scannerToStop
-            .stop()
-            .then(() => {
-              if (!silent)
-                console.log("QR Code scanning stopped successfully.");
-            })
-            .catch((err) => {
-              if (!silent)
-                console.warn(
-                  "Scanner stop error (might already be stopped):",
-                  err
-                );
-            })
-            .finally(() => {
-              // Final Cleanup: Clear container HTML and confirm status
-              if (readerDiv) readerDiv.innerHTML = "";
-              if (readerDiv) readerDiv.classList.add("hidden");
-              if (scanStatus) scanStatus.textContent = "Scanner is inactive.";
-            });
-        } else {
-          // Ensure UI is reset even if scanner wasn't active
-          if (readerDiv) readerDiv.innerHTML = "";
-          if (readerDiv) readerDiv.classList.add("hidden");
-          if (scanStatus) scanStatus.textContent = "Scanner is inactive.";
-        }
-      }
-      /** Updates the header and navigates to the correct dashboard based on user state. */
-      /** Updates the header and navigates to the correct dashboard based on user state. */
-      function navigate() {
-        // Always stop scanner before rendering a new view
-        stopQrScanner(true);
-        contentDiv.innerHTML = "";
-
-        if (user) {
-          // 🌟 CRITICAL FIX: Only display the roll number if the user is a student
-          // AND the rollno is a non-empty, non-placeholder value.
-          let rollDisplay = "";
-          if (user.role === "student" && user.rollno && user.rollno !== "N/A") {
-            rollDisplay = ` (${user.rollno})`;
-          }
-
-          welcomeMessage.textContent = `Welcome, ${user.name}${rollDisplay} (${user.role})`;
-          logoutBtn.classList.remove("hidden");
-
-          if (user.role === "admin") {
-            renderAdminDashboard();
-          } else if (user.role === "student") {
-            renderStudentDashboard();
-          } else {
-            renderAuthView();
-          }
-        } else {
-          welcomeMessage.textContent = "Please Login or Register";
-          logoutBtn.classList.add("hidden");
-          renderAuthView();
-          // Add this inside renderAdminDashboard() before the end of the function
-          // const today = new Date().toISOString().split("T")[0];
-          // const createDateInput = document.getElementById("attendance_date");
-          // if (createDateInput) {
-          //   createDateInput.value = today; // Default to today
-        }
-      }
-
-      // =========================================================================
-      // AUTHENTICATION/LOGIN LOGIC (Acts like a 'login.js' module)
-      // =========================================================================
-
-      // index.html: Around line 187
-
-      function handleAuthSuccess(loginResponseData) {
-        // 🌟 FIX: The API now returns a nested object: { message: '...', user: {...} }
-        // We must extract the inner 'user' object to maintain the application state.
-        const userData = loginResponseData.user;
-
-        // Check if critical fields exist before storing/navigating
-        if (!userData || !userData.role || !userData.class_id) {
-          showMessage(
-            "Login Error",
-            "User data is incomplete or missing class ID. Cannot load dashboard."
-          );
-          return;
-        }
-
-        user = userData;
-        localStorage.setItem("user", JSON.stringify(user));
-        navigate();
-      }
-
-      // index.html: Also update handleLogin (around line 199) to pass the full response data
-      async function handleLogin(e) {
-        e.preventDefault();
-        const username = e.target.username.value;
-        const password = e.target.password.value;
-
-        const data = await apiFetch("/login", {
-          method: "POST",
-          body: JSON.stringify({ username, password }),
-        });
-
-        if (data) {
-          // Pass the full data object (containing 'message' and 'user')
-          showMessage("Success", data.message || "Login successful!", () =>
-            handleAuthSuccess(data)
-          );
-        }
-      }
-
-      async function handleRegister(e) {
-        e.preventDefault();
-        const name = e.target.name.value;
-        const username = e.target.username.value;
-        const password = e.target.password.value;
-        const role = e.target.role.value;
-        // Send rollno regardless, backend will ignore it if role is admin
-        const rollno = e.target.rollno.value;
-        const class_id = e.target.class_id.value;
-        const semester = e.target.semester.value;
-
-        const data = await apiFetch("/register", {
-          method: "POST",
-          body: JSON.stringify({
-            name,
-            username,
-            password,
-            role,
-            rollno,
-            class_id,
-            semester,
-          }),
-        });
-        if (data) {
-          const authForm = document.getElementById("auth-form");
-          if (authForm) authForm.reset();
-
-          showMessage(
-            "Registration Success",
-            data.message + "\n\nPlease proceed to login.",
-            () => {
-              // Switch to login view after modal dismisses
-              const showLoginBtn = document.getElementById("show-login");
-              if (showLoginBtn) showLoginBtn.click();
-            }
-          );
         }
       }
 
       function handleLogout() {
-        // 1. Call stopQrScanner (silent = true) to immediately reset scanner state
-        stopQrScanner(true);
-
-        // 2. Clear user state and localStorage
-        user = null;
         localStorage.removeItem("user");
-
-        // 3. Navigate to the login screen
-        navigate();
-
-        // 4. Show confirmation message
-        showMessage("Logged Out", "You have been successfully logged out.");
+        user = null;
+        renderLoginPage();
       }
-
-      function renderAuthView() {
-        contentDiv.innerHTML = `
-                <div class="max-w-md mx-auto">
-                    <h2 class="text-3xl font-bold text-gray-900 mb-6 text-center">Welcome to the Attendance System</h2>
-                    
-                    <div class="flex space-x-2 mb-6">
-                        <button id="show-login" class="flex-1 btn-primary">Login</button>
-                        <button id="show-register" class="flex-1 btn-secondary">Register</button>
-                    </div>
-                    <form id="auth-form" class="space-y-4 bg-gray-50 p-6 rounded-xl border border-gray-200">
-                        <div id="role-select">
-                            <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
-                            <select id="role" name="role" required class="input-field">
-                                <option value="student">Student</option>
-                                <option value="admin">Admin</option>
-                            </select>
-                        </div>
-                        
-                        <div id="name-container" class="hidden">
-                            <label for="name" class="block text-sm font-medium text-gray-700">Full Name</label>
-                            <input type="text" id="name" name="name" placeholder="" required class="input-field">
-                        </div>
-                        
-                        <div id="rollno-container">
-                            <label for="rollno" class="block text-sm font-medium text-gray-700">Roll Number</label>
-                            <input type="text" id="rollno" name="rollno" placeholder="" required class="input-field">
-                        </div>
-
-                        <div id="classid-container">
-                            <label for="class_id" class="block text-sm font-medium text-gray-700">Class ID</label>
-                            <input type="text" id="class_id" name="class_id" placeholder="" required class="input-field">
-                        </div>
-
-                        <div>
-                            <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
-                            <input type="text" id="username" name="username" placeholder="" required class="input-field">
-                        </div>
-                        
-                        <div id="semester-container" class="hidden">
-                            <label for="semester" class="block text-sm font-medium text-gray-700">Semester</label>
-                            <input type="text" id="semester" name="semester" placeholder="" required class="input-field">
-                        </div>
-
-                        <div>
-                            <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                            <input type="password" id="password" name="password" placeholder="" required class="input-field">
-                        </div>
-                        
-                        <button type="submit" id="submit-btn" class="btn-primary w-full">Login</button>
-                    </form>
-                </div>
-            `;
-
-        const authForm = document.getElementById("auth-form");
-        const showLoginBtn = document.getElementById("show-login");
-        const showRegisterBtn = document.getElementById("show-register");
-        const roleSelect = document.getElementById("role");
-
-        // New references
-        const nameContainer = document.getElementById("name-container");
-        const nameInput = document.getElementById("name");
-
-        const rollnoContainer = document.getElementById("rollno-container");
-        const rollnoInput = document.getElementById("rollno");
-        const classIdContainer = document.getElementById("classid-container");
-        const classIdInput = document.getElementById("class_id");
-        const semesterContainer = document.getElementById("semester-container");
-        const semesterInput = document.getElementById("semester");
-        const submitBtn = document.getElementById("submit-btn");
-
-        let isLogin = true;
-        function updateRegistrationFields(selectedRole) {
-          if (selectedRole === "student") {
-            // Student: Requires Roll No. and Semester
-            rollnoContainer.classList.remove("hidden");
-            rollnoInput.required = true;
-            rollnoInput.value = "";
-
-            // 🌟 SHOW SEMESTER FOR STUDENT 🌟
-            semesterContainer.classList.remove("hidden");
-            semesterInput.required = true;
-            semesterInput.value = "";
-          } else {
-            // admin
-            // Admin: Does NOT require Roll No. or Semester
-            rollnoContainer.classList.add("hidden");
-            rollnoInput.required = false;
-            rollnoInput.value = "N/A";
-
-            // 🌟 HIDE SEMESTER FOR ADMIN 🌟
-            semesterContainer.classList.add("hidden");
-            semesterInput.required = false;
-            semesterInput.value = "N/A"; // Must send a dummy value
-          }
-        }
-        function updateForm(loginMode) {
-          isLogin = loginMode;
-
-          // Show/Hide Role Select (Always shown during Registration)
-          roleSelect.parentElement.classList.toggle("hidden", loginMode);
-          nameContainer.classList.toggle("hidden", loginMode);
-
-          if (isLogin) {
-            showLoginBtn.classList.replace("btn-secondary", "btn-primary");
-            showRegisterBtn.classList.replace("btn-primary", "btn-secondary");
-
-            nameInput.required = false;
-
-            rollnoContainer.classList.add("hidden");
-            rollnoInput.required = false;
-
-            // 🚨 CRITICAL: Hide class_id and semester on LOGIN
-            classIdContainer.classList.add("hidden");
-            classIdInput.required = false;
-            semesterContainer.classList.add("hidden");
-            semesterInput.required = false;
-
-            submitBtn.textContent = "Login";
-            authForm.onsubmit = handleLogin;
-            roleSelect.removeEventListener("change", updateRegistrationFields);
-          } else {
-            // Register Mode
-            showRegisterBtn.classList.replace("btn-secondary", "btn-primary");
-            showLoginBtn.classList.replace("btn-primary", "btn-secondary");
-
-            nameInput.required = true;
-
-            // 🌟 FIX: Show class_id on REGISTER 🌟
-            classIdContainer.classList.remove("hidden");
-            classIdInput.required = true;
-
-            submitBtn.textContent = "Register";
-            authForm.onsubmit = handleRegister;
-
-            // Initial state for Register (defaults to Student, shows rollno/semester based on this)
-            updateRegistrationFields(roleSelect.value);
-
-            // Add listener to role change event
-            roleSelect.addEventListener("change", (e) =>
-              updateRegistrationFields(e.target.value)
-            );
-          }
-        }
-
-        // Initial state: Login
-        updateForm(true);
-
-        showLoginBtn.addEventListener("click", () => updateForm(true));
-        showRegisterBtn.addEventListener("click", () => updateForm(false));
-      }
-
-      // =========================================================================
-      // ADMIN DASHBOARD LOGIC (Acts like an 'admin.js' module)
-      // =========================================================================
-
-      let qrCodeInstance = null;
 
       function generateQrCode(token) {
         const qrDiv = document.getElementById("qrcode");
-        const tokenDisplay = document.getElementById("qr-token-display");
+        if (!qrDiv) return;
 
-        // 1. CRITICAL: Clear both the instance and the DIV content
-        if (qrCodeInstance) {
-          // qrcode.js does not have a destroy method, so we clear the DOM element directly.
-          qrCodeInstance = null;
-        }
-        qrDiv.innerHTML = ""; // Clear the previous canvas/image from the DOM
-
-        // 2. Display the token text
-        tokenDisplay.textContent = `Token: ${token}`;
-
-        // 3. Create a new instance
+        qrDiv.innerHTML = ""; // Clear existing QR
         qrCodeInstance = new QRCode(qrDiv, {
           text: token,
-          width: 200,
-          height: 200,
-          colorDark: "#1f2937",
+          width: 128,
+          height: 128,
+          colorDark: "#4f46e5",
           colorLight: "#ffffff",
           correctLevel: QRCode.CorrectLevel.H,
         });
 
-        // Optional: Add a brief timeout to make sure the library has time to draw before any refresh
-        // Not strictly necessary, but helpful if the function is being called too rapidly.
-      } // Holds the QRCode object
-
-      // index.html
-      function renderAdminDashboard() {
-    const today = new Date().toISOString().split('T')[0];
-
-    contentDiv.innerHTML = `
-        <div class="flex flex-col space-y-6">
-            
-            <!-- 1. DATE FILTER (For viewing past records) -->
-            <div class="bg-white p-4 rounded-lg shadow flex items-center justify-between">
-                <div>
-                    <h3 class="text-lg font-bold text-gray-700">📅 View Attendance History</h3>
-                    <p class="text-sm text-gray-500">Select a date to filter the table below.</p>
-                </div>
-                <div>
-                    <input 
-                        type="date" 
-                        id="attendance-date" 
-                        value="${today}"
-                        class="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                        onchange="fetchAdminData()" 
-                    >
-                </div>
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-8">
-                <!-- 2. CREATE SESSION FORM -->
-                <div class="card p-6 bg-indigo-50 rounded-xl">
-                    <h3 class="text-2xl font-semibold text-indigo-700 mb-4">Start New Session</h3>
-                    <form id="create-session-form" class="space-y-3">
-                        <div>
-                            <input type="text" id="class_name" placeholder="Class Name" required class="input-field">
-                        </div>
-                        <div>
-                            <input type="text" id="class_code" placeholder="Class Code" required class="input-field">
-                        </div>
-                        
-                        <!-- 🌟 THIS IS THE MISSING INPUT THAT CAUSED THE ERROR 🌟 -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Session Date (Required)</label>
-                            <input 
-                                type="date" 
-                                id="create_session_date" 
-                                value="${today}" 
-                                required 
-                                class="input-field border-indigo-300"
-                            >
-                        </div>
-
-                        <button type="submit" class="btn-primary w-full">Generate QR Code</button>
-                    </form>
-                </div>
-
-                <!-- QR Code Display -->
-                <div class="card p-6 bg-white rounded-xl flex flex-col items-center justify-center">
-                    <h3 class="text-2xl font-semibold text-gray-700 mb-4">Active Session QR</h3>
-                    <div id="qrcode" class="p-2 border-4 border-indigo-500 rounded-lg bg-white mb-4 min-h-[200px] flex items-center justify-center">
-                        <p class="text-gray-500">Generate a session to see QR.</p>
-                    </div>
-                    <p id="qr-token-display" class="text-sm text-gray-600 truncate w-full text-center"></p>
-                </div>
-            </div>
-
-            <!-- Stats Tables -->
-            <div class="mb-8">
-                <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Student Statistics</h3>
-                <div id="stats-table-container" class="overflow-x-auto"></div>
-            </div>
-            
-            <div class="mb-8">
-                <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Detailed Logs</h3>
-                <div id="records-table-container" class="overflow-x-auto"></div>
-            </div>
-        </div>
-    `;
-    
-    // Re-attach event listeners
-    document.getElementById('create-session-form').onsubmit = handleCreateSession;
-    fetchAdminData();
-}
-
-      async function handleCreateSession(e) {
-    e.preventDefault();
-    const class_name = document.getElementById('class_name').value;
-    const class_code = document.getElementById('class_code').value;
-    
-    // 🌟 SAFER ACCESS: Check if element exists first
-    const dateInput = document.getElementById('create_session_date');
-    if (!dateInput) {
-        console.error("Critical Error: 'create_session_date' input missing from DOM.");
-        showMessage('Error', 'Internal Error: Date input missing. Please refresh the page.');
-        return;
-    }
-    
-    const session_date = dateInput.value;
-
-    if (!session_date) {
-        showMessage('Error', 'Please select a date for the session.');
-        return;
-    }
-
-    const data = await apiFetch("/admin/create_session", {
-        method: "POST",
-        body: JSON.stringify({
-            class_name,
-            class_code,
-            class_id: user.class_id,
-            date: session_date 
-        }),
-    });
-
-    if (data) {
-        showMessage(
-            "Session Created",
-            `A new session for ${class_code} is active for ${session_date}.`
-        );
-        e.target.reset();
-        
-        // Reset date to today
-        if(dateInput) dateInput.value = new Date().toISOString().split('T')[0];
-        
-        // Update filter to match created session so you see it immediately
-        const filterInput = document.getElementById('attendance-date');
-        if (filterInput) filterInput.value = session_date;
-
-        fetchAdminData();
-    }
-}
-
-      async function exportDataFromBackend(
-        filename = "All_Attendance_Records"
-      ) {
-        showMessage(
-          "Exporting...",
-          "Fetching all records from the server...",
-          "bg-yellow-500"
-        );
-
-        try {
-          // Assume the endpoint to get ALL records is /admin/records
-          const records = await apiFetch("/admin/records", { method: "GET" });
-
-          if (!records || records.length === 0) {
-            showMessage(
-              "Export Failed",
-              "No attendance records found on the server.",
-              "bg-red-500"
-            );
-            return;
-          }
-
-          // --- Data Processing: Convert JSON to CSV ---
-
-          // 1. Determine Headers: Use keys from the first object
-          const headers = Object.keys(records[0]).map((header) => {
-            // Capitalize first letter and replace underscores with spaces for readability
-            return (
-              header.charAt(0).toUpperCase() +
-              header.slice(1).replace(/_/g, " ")
-            );
-          });
-
-          // 2. Build the CSV content
-          let csv = [];
-
-          // Add header row first, ensuring proper quoting
-          csv.push(headers.map((h) => `"${h}"`).join(","));
-
-          // Add data rows
-          records.forEach((record) => {
-            const row = headers.map((header) => {
-              const key = header.toLowerCase().replace(/ /g, "_");
-              let data = String(record[key] !== undefined ? record[key] : "");
-
-              // Escape quotes inside data by doubling them, then wrap the cell in quotes
-              data = data.replace(/"/g, '""').trim();
-              return `"${data}"`;
-            });
-            csv.push(row.join(","));
-          });
-
-          const csvFile = csv.join("\n");
-
-          // --- Download: Create Blob and Trigger Download ---
-
-          const blob = new Blob([csvFile], { type: "text/csv;charset=utf-8;" });
-          const link = document.createElement("a");
-
-          if (link.download !== undefined) {
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", filename + ".csv");
-            link.style.visibility = "hidden";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            showMessage(
-              "Export Complete",
-              `Successfully exported ${records.length} records to ${filename}.csv.`,
-              "bg-green-500"
-            );
-          } else {
-            showMessage(
-              "Export Failed",
-              "Your browser does not support automatic downloads.",
-              "bg-red-500"
-            );
-          }
-        } catch (error) {
-          console.error("Export Error:", error);
-          showMessage(
-            "Export Failed",
-            "An error occurred while fetching or processing data.",
-            "bg-red-500"
-          );
-        }
+        document.getElementById("qr-token-display").textContent = token;
       }
+      
+      // =========================================================================
+      // ADMIN DASHBOARD FUNCTIONS
+      // =========================================================================
+      
+      // 🚨 FIX: Refactored to read the new 'create_session_date' ID and send it to backend.
+      async function handleCreateSession(e) {
+        e.preventDefault();
+        const class_name = document.getElementById('class_name').value;
+        const class_code = document.getElementById('class_code').value;
+        
+        // 🎯 CRITICAL FIX: Ensure the correct ID is read
+        const dateInput = document.getElementById('create_session_date');
+        if (!dateInput) {
+            showMessage('Error', 'UI Error: Session Date input missing. Please refresh.');
+            return;
+        }
+        
+        const session_date = dateInput.value;
 
-      // index.html: Update fetchAdminData()
-
-      async function fetchAdminData() {
-        // CRITICAL CHECK: Ensure user object and class_id are available
-        if (!user || !user.class_id) {
-          // You should have a way to log out or prompt re-login here
-          console.error("User or Class ID missing from session.");
-          return;
+        if (!session_date) {
+            showMessage('Error', 'Please select a date for the session.');
+            return;
         }
 
-        // Must be POST to send class_id for filtering
-        const data = await apiFetch("/admin/attendance", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          // Send the class_id retrieved during login
-          body: JSON.stringify({ class_id: user.class_id }),
+        const data = await apiFetch("/admin/create_session", {
+            method: "POST",
+            body: JSON.stringify({
+                class_name,
+                class_code,
+                class_id: user.class_id,
+                date: session_date // 🌟 Send specific date to backend
+            }),
         });
 
         if (data) {
-          // 🌟 FIX: Safely access stats and records, defaulting to empty array [] if undefined/null
-          const stats = data.stats || [];
-          const records = data.records || [];
-
-          // Call rendering functions with safe arrays
-          // This prevents the "Cannot read properties of undefined (reading 'length')" error
-          renderStatsTable(stats);
-          renderRecordsTable(records);
-
-          // 3. QR Code Generation Logic
-          const qrDiv = document.getElementById("qrcode");
-          const tokenDisplay = document.getElementById("qr-token-display");
-
-          // Ensure generateQrCode is a defined function in your JS file's global scope
-          if (typeof generateQrCode === "function" && data.current_qr_token) {
-            if (!qrCodeInstance) {
-              generateQrCode(data.current_qr_token);
+            showMessage(
+                "Session Created",
+                `New session for ${class_code} active for ${session_date}.`
+            );
+            
+            // Auto-switch the dashboard filter to the created date
+            const filterInput = document.getElementById('attendance-date');
+            if (filterInput) {
+                filterInput.value = session_date;
             }
-          } else if (data.current_qr_token) {
-            // If generateQrCode is not a function, just display the token
-            qrDiv.innerHTML = `<p class="text-lg text-green-600 font-bold">QR Token: ${data.current_qr_token}</p>`;
-          } else {
-            // No active session found. Clear display.
-            qrDiv.innerHTML =
-              '<p class="text-gray-500">No active session found. Create one above.</p>';
-            tokenDisplay.textContent = "";
-          }
-        } else {
-          // Handle API fetch failure gracefully
-          showMessage(
-            "Error",
-            "Failed to fetch dashboard data. Check backend server logs."
-          );
+
+            // Generate QR code for the new token and refresh data
+            generateQrCode(data.qr_token);
+            fetchAdminData();
+        }
+      }
+
+      async function fetchAdminData() {
+        if (!user || !user.class_id) {
+            console.error("User or Class ID missing.");
+            return; 
+        }
+
+        const dateInput = document.getElementById('attendance-date');
+        // Default to today if input doesn't exist yet, otherwise use input value
+        const selectedDate = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
+        
+        // Ensure the input visual shows the date being used
+        if (dateInput && !dateInput.value) {
+            dateInput.value = selectedDate;
+        }
+
+        const data = await apiFetch("/admin/attendance", {
+            method: "POST", 
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                class_id: user.class_id,
+                date: selectedDate // 🌟 SEND DATE TO BACKEND for filtering
+            }),
+        });
+
+        if (data) {
+            renderStatsTable(data.stats || []); 
+            renderRecordsTable(data.records || []);
+
+            // Handle QR Code Display on Data Fetch
+            const token = data.current_qr_token;
+            if (token) {
+                // Only generate if the instance doesn't exist or is for a different token
+                const currentTokenDisplay = document.getElementById("qr-token-display");
+                if (!qrCodeInstance || currentTokenDisplay.textContent !== token) {
+                    generateQrCode(token);
+                }
+            } else {
+                const qrDiv = document.getElementById("qrcode");
+                qrDiv.innerHTML = '<p class="text-gray-500 text-center">No active session found. Create one above.</p>';
+                document.getElementById("qr-token-display").textContent = "";
+            }
         }
       }
 
       function renderStatsTable(stats) {
         const container = document.getElementById("stats-table-container");
-        if (stats.length === 0) {
-          container.innerHTML =
-            '<p class="text-gray-500">No student data available. Ask students to register.</p>';
-          return;
-        }
-
-        const tableHTML = `
-            <table class="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
-                <thead class="bg-indigo-600 text-white">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Student Name</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Roll Number</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Attended</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Total Classes</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Percentage</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Action</th> 
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    ${stats
-                      .map(
-                        (stat) => `
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${
-                              stat.name
-                            }</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${
-                              stat.rollno || "N/A"
-                            }</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${
-                              stat.attended
-                            }</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${
-                              stat.total
-                            }</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${
-                              stat.percentage < 50
-                                ? "text-red-600"
-                                : "text-green-600"
-                            }">${stat.percentage}%</td>
-                            
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <button 
-                                    onclick="handleDeleteStudent('${stat.id}')" 
-                                    class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-xs"
-                                >
-                                    Delete
-                                </button>
-                            </td>
-                        </tr>
-                      `
-                      )
-                      .join("")}
-                </tbody>
-            </table>
-        `;
-        container.innerHTML = tableHTML;
-      }
-
-      function renderRecordsTable(records) {
-        const container = document.getElementById("records-table-container");
-        if (records.length === 0) {
-          container.innerHTML =
-            '<p class="text-gray-500">No attendance records yet.</p>';
-          return;
+        if (!container) return;
+        
+        // Safety check for empty stats
+        if (stats.length === 0 || (stats.length > 0 && stats[0].total === 0)) {
+            container.innerHTML =
+                '<p class="text-gray-500">No session data or student data found for this date/class.</p>';
+            return;
         }
 
         const tableHTML = `
                 <table class="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
-                    <thead class="bg-gray-100 text-gray-700">
+                    <thead class="bg-indigo-600 text-white">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Student</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Roll No.</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Class</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Code</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Time</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Action</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Student Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Roll No</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Attended</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Total Sessions</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Percentage</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Action</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                        ${records
-                          .map(
-                            (record) => `
-                            <tr class="hover:bg-gray-50" data-id="${record.id}">
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">${
-                                  record.student_name
-                                }</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${
-                                  record.roll_no || "N/A"
-                                }</td> 
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${
-                                  record.class_name
-                                }</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">${
-                                  record.class_code
-                                }</td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <span class="status-display font-semibold ${
-                                      record.status === "Present"
-                                        ? "text-green-600"
-                                        : "text-red-600"
-                                    }">
-                                        ${record.status}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500">${new Date(
-                                  record.timestamp
-                                ).toLocaleString()}</td>
-                                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                                    <select class="status-select input-field p-1 text-sm bg-white" onchange="handleStatusChange(${
-                                      record.id
-                                    }, this.value)">
-                                        <option value="Present" ${
-                                          record.status === "Present"
-                                            ? "selected"
-                                            : ""
-                                        }>Present</option>
-                                        <option value="Absent" ${
-                                          record.status === "Absent"
-                                            ? "selected"
-                                            : ""
-                                        }>Absent</option>
-                                    </select>
+                        ${stats.map(stat => `
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${stat.name}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${stat.rollno || "N/A"}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${stat.attended}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${stat.total}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${stat.percentage < 75 ? "text-red-600" : "text-green-600"}">${stat.percentage}%</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button 
+                                        onclick="handleDeleteStudentPrompt('${stat.id}', '${stat.name}')" 
+                                        class="bg-red-100 text-red-700 hover:bg-red-200 border border-red-300 font-bold py-1 px-3 rounded text-xs transition duration-150"
+                                    >
+                                        Delete Student
+                                    </button>
                                 </td>
                             </tr>
-                        `
-                          )
-                          .join("")}
+                        `).join("")}
                     </tbody>
                 </table>
             `;
         container.innerHTML = tableHTML;
       }
-
-      async function handleStatusChange(recordId, newStatus) {
-        const data = await apiFetch("/admin/update_attendance", {
-          method: "POST",
-          body: JSON.stringify({ record_id: recordId, status: newStatus }),
-        });
-
-        if (data) {
-          // Quick UI update (before full re-fetch)
-          const row = document.querySelector(`tr[data-id="${recordId}"]`);
-          if (row) {
-            const statusSpan = row.querySelector(".status-display");
-            statusSpan.textContent = newStatus;
-            statusSpan.classList.remove("text-green-600", "text-red-600");
-            statusSpan.classList.add(
-              newStatus === "Present" ? "text-green-600" : "text-red-600"
-            );
+      
+      // Stub function for the delete button (requires confirmation)
+      function handleDeleteStudentPrompt(student_id, student_name) {
+          if (confirm(`Are you sure you want to delete student: ${student_name}? This action is irreversible and deletes all records.`)) {
+              handleDeleteStudent(student_id);
           }
-          showMessage(
-            "Update Success",
-            `Attendance for record ID ${recordId} set to ${newStatus}.`
-          );
-          fetchAdminData();
-        }
       }
 
-      // index.html: Add this function to your <script> tag
       async function handleDeleteStudent(student_id) {
-        if (!user || !user.class_id) {
-          showMessage("Error", "Missing Admin Class ID. Please re-login.");
-          return;
-        }
-
-        const data = await apiFetch("/admin/delete_student", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            student_id: student_id,
-            class_id: user.class_id, // Send class_id for server-side security check
-          }),
-        });
-
-        if (data.message) {
-          showMessage("Success", data.message);
-          // Refresh the dashboard data after successful deletion
-          await fetchAdminData();
-        } else {
-          showMessage("Error", data.error || "Failed to delete student.");
-        }
-      }
-
-      // =========================================================================
-      // STUDENT DASHBOARD LOGIC (Acts like a 'student.js' module)
-      // =========================================================================
-
-      function renderStudentDashboard() {
-    contentDiv.innerHTML = `
-        <div class="max-w-xl mx-auto p-8 bg-white shadow-xl rounded-lg">
-            <h2 class="text-3xl font-bold text-indigo-700 mb-6">Attendance Scanner 📱</h2>
-            <p class="text-gray-600 mb-8">Hello, **${user.name}**! Enter the QR Token provided by your Admin to mark your attendance for the active class.</p>
-
-            <form id="mark-attendance-form" class="space-y-4">
-                <p class="text-sm font-medium text-gray-500">Your Student ID: ${user.user_id}</p>
-                
-                <div>
-                    <label for="qr_token_input" class="block text-sm font-medium text-gray-700">QR Code Token</label>
-                    <input type="text" id="qr_token_input" required placeholder="Enter 8-digit token (e.g., A1B2C3D4)" class="input-field uppercase tracking-wider">
-                </div>
-
-                <button type="submit" class="btn-primary w-full py-3">Mark Attendance</button>
-            </form>
-
-            <div id="attendance-status" class="mt-6 p-4 rounded-lg bg-gray-100 text-center hidden"></div>
-            
-            
-
-[Image of QR code scanner interface on a smartphone]
-
-
-            <h3 class="text-xl font-semibold text-gray-700 mt-10 mb-4 border-t pt-4">Your Overall Attendance</h3>
-            <div id="student-stats-container">Loading statistics...</div>
-        </div>
-    `;
-    // Attach the submission handler and fetch initial stats
-    document.getElementById('mark-attendance-form').onsubmit = handleMarkAttendance;
-    fetchStudentStats();
-}
-
-      /** * Stops the active QR scanner and resets control buttons. */
-      function startQrScanner() {
-        // Check global state
-        if (qrCodeScanner) return;
-
-        const startBtn = document.getElementById("start-scan-btn");
-        const stopBtn = document.getElementById("stop-scan-btn");
-        const readerDiv = document.getElementById("reader");
-        const scanStatus = document.getElementById("scan-status");
-
-        // 1. Update UI and clear container (in case stop didn't finish)
-        if (startBtn) startBtn.classList.add("hidden");
-        if (stopBtn) stopBtn.classList.remove("hidden");
-
-        if (readerDiv) {
-          readerDiv.innerHTML = ""; // Force wipe before starting
-          readerDiv.classList.remove("hidden");
-        }
-        if (scanStatus) scanStatus.textContent = "Requesting camera access...";
-
-        // 2. Initialize the lower-level Html5Qrcode class
-        qrCodeScanner = new Html5Qrcode("reader");
-
-        const onScanSuccess = (decodedText, decodedResult) => {
-          handleMarkAttendance(decodedText);
-        };
-
-        const config = {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0, // Better for mobile
-        };
-
-        // 3. Start the scanning process immediately, requesting the back camera
-        qrCodeScanner
-          .start(
-            { facingMode: "environment" },
-            config,
-            onScanSuccess,
-            // onScanFailure handler is used for ongoing errors while scanning
-            (errorMessage) => {
-              if (scanStatus)
-                scanStatus.textContent = "Scanning for QR Code...";
-            }
-          )
-          .catch((err) => {
-            // Handles initial permission denial or hardware failure
-            if (scanStatus) {
-              scanStatus.textContent =
-                "Error starting camera. Check permissions/security context.";
-            }
-            stopQrScanner(true);
+          const data = await apiFetch("/admin/delete_student", {
+              method: "POST",
+              body: JSON.stringify({ student_id }),
           });
+
+          if (data) {
+              showMessage("Success", data.message);
+              fetchAdminData(); // Refresh table
+          }
       }
-      async function handleMarkAttendance(e) {
-    e.preventDefault();
-    const qr_token = document.getElementById('qr_token_input').value.trim();
-    const student_id = user.user_id;
-    const statusDiv = document.getElementById('attendance-status');
-    
-    statusDiv.className = 'mt-6 p-4 rounded-lg bg-yellow-100 text-yellow-800 text-center';
-    statusDiv.textContent = 'Submitting attendance...';
-    statusDiv.style.display = 'block';
-
-    const data = await apiFetch("/student/mark_attendance", {
-        method: "POST",
-        body: JSON.stringify({ student_id, qr_token }),
-    });
-
-    if (data && data.status) {
-        statusDiv.className = 'mt-6 p-4 rounded-lg bg-green-100 text-green-800 text-center font-bold';
-        statusDiv.textContent = data.message;
-        e.target.reset(); // Clear token input
-        fetchStudentStats(); // Refresh stats immediately
-    } else if (data && data.error) {
-        statusDiv.className = 'mt-6 p-4 rounded-lg bg-red-100 text-red-800 text-center font-bold';
-        statusDiv.textContent = `Error: ${data.error}`;
-    }
-}
-async function fetchStudentStats() {
-    const statsContainer = document.getElementById('student-stats-container');
-    const student_id = user.user_id;
-
-    // Ensure the user object exists before fetching
-    if (!student_id) {
-        statsContainer.textContent = "Error: Student ID not available.";
-        return;
-    }
-
-    const data = await apiFetch(`/student/stats/${student_id}`, { method: "GET" });
-
-    if (data) {
-        const percentage = data.percentage;
-        const color = percentage >= 75 ? 'text-green-600' : 'text-red-600';
+      
+      function updateAttendanceStatusHandler() {
+          showMessage("Manual Update", "This feature needs a specific UI. Look at the 'Detailed Attendance Log' below and consider filtering by student to update specific records.");
+          // A full implementation requires asking for record ID, new status, and calling /admin/update_attendance
+      }
+      
+      function renderRecordsTable(records) {
+        const container = document.getElementById("records-table-container");
+        if (!container) return;
         
-        statsContainer.innerHTML = `
-            <div class="grid grid-cols-3 gap-4 text-center">
-                <div class="p-3 border rounded-lg bg-blue-50">
-                    <p class="text-2xl font-bold text-blue-700">${data.total_classes}</p>
-                    <p class="text-sm text-gray-500">Total Classes</p>
+        if (records.length === 0) {
+            container.innerHTML =
+                '<p class="text-gray-500">No attendance records found for the selected date.</p>';
+            return;
+        }
+
+        const tableHTML = `
+                <table class="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
+                    <thead class="bg-gray-700 text-white">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Student Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Roll No</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Class Code</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Time</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${records.map(record => {
+                            const date = new Date(record.timestamp * 1000).toLocaleString();
+                            const statusColor = record.status === 'Present' ? 'text-green-600 font-bold' : 'text-red-600';
+                            return `
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${record.student_name}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${record.roll_no || "N/A"}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${record.class_code}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm ${statusColor}">${record.status}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${date}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button 
+                                            onclick="toggleAttendanceStatus('${record.id}', '${record.status}')" 
+                                            class="bg-blue-100 text-blue-700 hover:bg-blue-200 font-bold py-1 px-3 rounded text-xs transition duration-150"
+                                        >
+                                            Toggle to ${record.status === 'Present' ? 'Absent' : 'Present'}
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join("")}
+                    </tbody>
+                </table>
+            `;
+        container.innerHTML = tableHTML;
+      }
+      
+      async function toggleAttendanceStatus(record_id, current_status) {
+          const new_status = current_status === 'Present' ? 'Absent' : 'Present';
+          
+          const data = await apiFetch("/admin/update_attendance", {
+              method: "POST",
+              body: JSON.stringify({ record_id, status: new_status }),
+          });
+
+          if (data) {
+              showMessage("Update Successful", `Record ${record_id} status changed to ${new_status}.`);
+              fetchAdminData(); // Refresh table
+          }
+      }
+
+      // 🚨 FIX: Corrected function to prevent QR generation errors
+      function renderAdminDashboard() {
+        const today = new Date().toISOString().split('T')[0];
+
+        appContainer.innerHTML = `
+            <div class="flex flex-col space-y-8">
+                <div class="flex justify-between items-center border-b pb-4">
+                    <h2 class="text-4xl font-extrabold text-indigo-700">Admin Dashboard</h2>
+                    <button onclick="handleLogout()" class="btn-secondary">Logout</button>
                 </div>
-                <div class="p-3 border rounded-lg bg-green-50">
-                    <p class="text-2xl font-bold text-green-700">${data.attended}</p>
-                    <p class="text-sm text-gray-500">Attended</p>
+
+                <div class="bg-indigo-50 p-4 rounded-lg text-sm text-indigo-800 shadow-inner">
+                    <p>Welcome, <strong>${user.name}</strong>. Managing Class ID: <strong>${user.class_id}</strong></p>
                 </div>
-                <div class="p-3 border rounded-lg bg-red-50">
-                    <p class="text-2xl font-bold text-red-700">${data.missed}</p>
-                    <p class="text-sm text-gray-500">Missed</p>
+
+                <div class="bg-white p-5 rounded-xl shadow-lg border border-gray-100 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-700">📅 View Attendance History</h3>
+                        <p class="text-sm text-gray-500">Select a date to filter the statistics and records below.</p>
+                    </div>
+                    <div>
+                        <input 
+                            type="date" 
+                            id="attendance-date" 
+                            value="${today}"
+                            class="p-3 border-2 border-indigo-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+                            onchange="fetchAdminData()" 
+                        >
+                    </div>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-8">
+                    
+                    <div class="card p-6 bg-indigo-50 rounded-xl shadow-xl col-span-2">
+                        <h3 class="text-2xl font-semibold text-indigo-700 mb-4">Start New Session (Generate QR)</h3>
+                        <form id="create-session-form" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-indigo-700 mb-1">Class Name</label>
+                                <input type="text" id="class_name" placeholder="E.g., Computer Science" required class="input-field">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-indigo-700 mb-1">Class Code</label>
+                                <input type="text" id="class_code" placeholder="E.g., CS101" required class="input-field">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-indigo-700 mb-1">Session Date (Required)</label>
+                                <input 
+                                    type="date" 
+                                    id="create_session_date" 
+                                    value="${today}" 
+                                    required 
+                                    class="input-field border-indigo-500"
+                                >
+                            </div>
+
+                            <button type="submit" class="btn-primary w-full py-2 bg-indigo-600 hover:bg-indigo-700 transition duration-150">Generate New QR Code</button>
+                        </form>
+                    </div>
+
+                    <div class="card p-6 bg-white rounded-xl shadow-xl flex flex-col items-center justify-center border-4 border-indigo-200">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-3">Active QR Token</h3>
+                        <div id="qrcode" class="p-3 border-4 border-indigo-500 rounded-lg bg-white mb-4 min-h-[150px] flex items-center justify-center">
+                            <p class="text-gray-500 text-center">Generate a session to see QR.</p>
+                        </div>
+                        <p id="qr-token-display" class="text-lg font-bold text-indigo-600 truncate w-full text-center"></p>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 p-5 rounded-xl shadow-inner border border-gray-200">
+                    <h3 class="text-xl font-bold text-gray-700 mb-4">Quick Actions</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button onclick="updateAttendanceStatusHandler()" class="btn-secondary py-2 bg-teal-500 hover:bg-teal-600 text-white">
+                            Manually Update Attendance
+                        </button>
+                        <button onclick="handleDeleteStudentPrompt()" class="btn-secondary py-2 bg-red-500 hover:bg-red-600 text-white">
+                            Delete Student
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-8">
+                    <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Student Statistics (Filtered)</h3>
+                    <div id="stats-table-container" class="overflow-x-auto bg-white p-4 rounded-lg shadow"></div>
+                </div>
+
+                <div class="mb-8">
+                    <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Detailed Attendance Log (Filtered)</h3>
+                    <div id="records-table-container" class="overflow-x-auto bg-white p-4 rounded-lg shadow"></div>
                 </div>
             </div>
-            <p class="text-4xl font-extrabold mt-6 ${color}">Attendance: ${percentage}%</p>
         `;
-    } else {
-        statsContainer.textContent = "Could not load statistics.";
-    }
-}
+        
+        // Attach event listener for session creation
+        document.getElementById('create-session-form').onsubmit = handleCreateSession;
+        
+        // Initial Data Fetch based on today's date
+        fetchAdminData();
+      }
+
+      // =========================================================================
+      // STUDENT DASHBOARD FUNCTIONS (CAMERA SCANNER)
+      // =========================================================================
+      
+      // 🚨 NEW: Global instance for HTML5 QR Code scanner
+      // let qrCodeScanner = null; (Declared globally at the top)
+
+      // 🚨 NEW: Function to initiate the camera scanner
+      function startQrScanner() {
+          const containerId = "scanner-container";
+          const statusDiv = document.getElementById('attendance-status');
+          
+          if (qrCodeScanner) {
+            qrCodeScanner.stop().catch(console.error);
+          }
+          
+          qrCodeScanner = new Html5Qrcode(containerId);
+
+          const html5QrCodeConfig = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+          qrCodeScanner.start(
+              { facingMode: "environment" }, // Request rear camera
+              html5QrCodeConfig,
+              
+              // Success Callback: When a QR code is detected
+              (decodedText, decodedResult) => {
+                  // Stop scanning immediately upon success
+                  qrCodeScanner.stop().then(() => {
+                      const qr_token = decodedText.trim().toUpperCase();
+                      // Submit the token to the backend
+                      handleMarkAttendance(qr_token); 
+                  }).catch(err => {
+                      // Attempt to submit even if stopping fails
+                      handleMarkAttendance(decodedText.trim().toUpperCase());
+                      console.error("Error stopping scanner after success:", err);
+                  });
+              },
+              
+              // Error Callback (Show error only if camera fails to start)
+              (errorMessage) => {
+                  // This is called constantly, so only log for debugging
+                  // console.log("QR Code Scan Error:", errorMessage);
+              }
+          ).catch((err) => {
+              statusDiv.className = 'mt-4 p-4 rounded-lg bg-red-100 text-red-800 text-center font-bold';
+              statusDiv.textContent = `Camera Error: Could not start scanner. Check permissions or refresh.`;
+              statusDiv.style.display = 'block';
+              console.error("Failed to start scanner:", err);
+          });
+      }
+      
+      // 🚨 REFACTORED: Now accepts the token directly from the scanner
+      async function handleMarkAttendance(qr_token) {
+          const student_id = user.user_id;
+          const statusDiv = document.getElementById('attendance-status');
+          
+          statusDiv.className = 'mt-6 p-4 rounded-lg bg-yellow-100 text-yellow-800 text-center';
+          statusDiv.textContent = `Submitting attendance...`;
+          statusDiv.style.display = 'block';
+
+          const data = await apiFetch("/student/mark_attendance", {
+              method: "POST",
+              body: JSON.stringify({ student_id, qr_token }),
+          });
+
+          if (data && data.status) {
+              statusDiv.className = 'mt-6 p-4 rounded-lg bg-green-100 text-green-800 text-center font-bold';
+              statusDiv.textContent = data.message + " Scanner stopped.";
+              
+              fetchStudentStats(); // Refresh stats immediately
+              
+          } else if (data && data.error) {
+              statusDiv.className = 'mt-6 p-4 rounded-lg bg-red-100 text-red-800 text-center font-bold';
+              statusDiv.textContent = `Error: ${data.error}`;
+
+              // If attendance failed, restart scanner to allow re-scan
+              if (qrCodeScanner && !qrCodeScanner.isScanning) {
+                  qrCodeScanner.start().catch(console.error);
+              }
+          }
+      }
+
+      function renderStudentDashboard() {
+          appContainer.innerHTML = `
+              <div class="max-w-xl mx-auto p-8 bg-white shadow-xl rounded-lg border-2 border-indigo-200">
+                  <div class="flex justify-between items-center mb-6 border-b pb-3">
+                      <h2 class="text-3xl font-bold text-indigo-700">Attendance Scanner 📸</h2>
+                      <button onclick="handleLogout()" class="btn-secondary">Logout</button>
+                  </div>
+                  <p class="text-gray-600 mb-4">Hello, <strong>${user.name}</strong>! Point your camera at the admin's QR code.</p>
+                  
+                  <div id="scanner-container" class="mb-6 p-2 border-4 border-indigo-500 rounded-lg overflow-hidden">
+                      <p class="text-white text-center p-4">Loading camera...</p>
+                  </div>
+                  
+                  <div id="attendance-status" class="mt-4 p-4 rounded-lg bg-gray-100 text-center hidden"></div>
+                  
+                  <h3 class="text-xl font-semibold text-gray-700 mt-10 mb-4 border-t pt-4">Your Overall Attendance</h3>
+                  <div id="student-stats-container" class="bg-gray-50 p-4 rounded-lg">Loading statistics...</div>
+              </div>
+          `;
+          
+          // 🌟 NEW: Initialize the QR scanner and fetch stats
+          startQrScanner();
+          fetchStudentStats();
+      }
+      
+      async function fetchStudentStats() {
+          const statsContainer = document.getElementById('student-stats-container');
+          if (!statsContainer) return;
+          const student_id = user.user_id;
+
+          const data = await apiFetch(`/student/stats/${student_id}`, { method: "GET" });
+
+          if (data) {
+              const percentage = data.percentage;
+              const color = percentage >= 75 ? 'text-green-600' : 'text-red-600';
+              
+              statsContainer.innerHTML = `
+                  <div class="grid grid-cols-3 gap-4 text-center">
+                      <div class="p-3 border rounded-lg bg-blue-50">
+                          <p class="text-2xl font-bold text-blue-700">${data.total_classes}</p>
+                          <p class="text-sm text-gray-500">Total Classes</p>
+                      </div>
+                      <div class="p-3 border rounded-lg bg-green-50">
+                          <p class="text-2xl font-bold text-green-700">${data.attended}</p>
+                          <p class="text-sm text-gray-500">Attended</p>
+                      </div>
+                      <div class="p-3 border rounded-lg bg-red-50">
+                          <p class="text-2xl font-bold text-red-700">${data.missed}</p>
+                          <p class="text-sm text-gray-500">Missed</p>
+                      </div>
+                  </div>
+                  <p class="text-4xl font-extrabold mt-6 text-center ${color}">Attendance: ${percentage}%</p>
+              `;
+          } else {
+              statsContainer.textContent = "Could not load statistics.";
+          }
+      }
+
+      // =========================================================================
+      // LOGIN/REGISTRATION FUNCTIONS (Unchanged)
+      // =========================================================================
+
+      function renderLoginPage() {
+        appContainer.innerHTML = `
+            <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-2xl">
+                <h2 class="text-3xl font-bold text-center text-indigo-700 mb-6">QR Attendance Login</h2>
+                <form id="login-form" class="space-y-4">
+                    <div>
+                        <input type="text" id="login-username" placeholder="Username" required class="input-field">
+                    </div>
+                    <div>
+                        <input type="password" id="login-password" placeholder="Password" required class="input-field">
+                    </div>
+                    <button type="submit" class="btn-primary w-full">Login</button>
+                </form>
+                <p class="text-center mt-4">
+                    Don't have an account? 
+                    <button onclick="renderRegistrationPage()" class="text-indigo-600 hover:text-indigo-800 font-medium">Register here</button>
+                </p>
+            </div>
+        `;
+        document.getElementById("login-form").onsubmit = handleLogin;
+      }
+      
+      async function handleLogin(e) {
+          e.preventDefault();
+          const username = document.getElementById("login-username").value;
+          const password = document.getElementById("login-password").value;
+
+          const data = await apiFetch("/login", {
+              method: "POST",
+              body: JSON.stringify({ username, password }),
+          });
+
+          if (data && data.user) {
+              localStorage.setItem("user", JSON.stringify(data.user));
+              user = data.user;
+              initializeApp();
+          }
+      }
+
+      function renderRegistrationPage() {
+        appContainer.innerHTML = `
+            <div class="max-w-lg mx-auto bg-white p-8 rounded-xl shadow-2xl">
+                <h2 class="text-3xl font-bold text-center text-indigo-700 mb-6">Register</h2>
+                <form id="register-form" class="space-y-4">
+                    <div>
+                        <input type="text" id="reg-name" placeholder="Full Name" required class="input-field">
+                    </div>
+                    <div>
+                        <input type="text" id="reg-username" placeholder="Username" required class="input-field">
+                    </div>
+                    <div>
+                        <input type="password" id="reg-password" placeholder="Password" required class="input-field">
+                    </div>
+                    <div class="flex space-x-4">
+                        <select id="reg-role" required class="input-field flex-1" onchange="toggleStudentFields(this.value)">
+                            <option value="">Select Role</option>
+                            <option value="admin">Admin</option>
+                            <option value="student">Student</option>
+                        </select>
+                        <input type="text" id="reg-class-id" placeholder="Class ID (e.g. CS-A)" required class="input-field flex-1">
+                    </div>
+                    <div id="student-fields" class="space-y-4 hidden">
+                        <input type="text" id="reg-rollno" placeholder="Roll Number (Unique)" class="input-field">
+                        <input type="text" id="reg-semester" placeholder="Semester" class="input-field">
+                    </div>
+                    <button type="submit" class="btn-primary w-full">Register</button>
+                </form>
+                <p class="text-center mt-4">
+                    Already have an account? 
+                    <button onclick="renderLoginPage()" class="text-indigo-600 hover:text-indigo-800 font-medium">Login here</button>
+                </p>
+            </div>
+        `;
+        document.getElementById("register-form").onsubmit = handleRegister;
+      }
+
+      function toggleStudentFields(role) {
+          const fields = document.getElementById("student-fields");
+          if (role === 'student') {
+              fields.classList.remove('hidden');
+              document.getElementById('reg-rollno').required = true;
+              document.getElementById('reg-semester').required = true;
+          } else {
+              fields.classList.add('hidden');
+              document.getElementById('reg-rollno').required = false;
+              document.getElementById('reg-semester').required = false;
+          }
+      }
+      
+      async function handleRegister(e) {
+          e.preventDefault();
+          const role = document.getElementById("reg-role").value;
+          const payload = {
+              name: document.getElementById("reg-name").value,
+              username: document.getElementById("reg-username").value,
+              password: document.getElementById("reg-password").value,
+              role: role,
+              class_id: document.getElementById("reg-class-id").value,
+          };
+
+          if (role === 'student') {
+              payload.rollno = document.getElementById("reg-rollno").value;
+              payload.semester = document.getElementById("reg-semester").value;
+          }
+
+          const data = await apiFetch("/register", {
+              method: "POST",
+              body: JSON.stringify(payload),
+          });
+
+          if (data) {
+              showMessage("Success", data.message);
+              renderLoginPage();
+          }
+      }
+
       // =========================================================================
       // INITIALIZATION
       // =========================================================================
 
-      logoutBtn.addEventListener("click", handleLogout);
+      function initializeApp() {
+          if (user) {
+              if (user.role === 'admin') {
+                  renderAdminDashboard();
+              } else if (user.role === 'student') {
+                  renderStudentDashboard();
+              }
+          } else {
+              renderLoginPage();
+          }
+      }
 
-      // Run navigation on load to show the correct view (Auth, Admin, or Student)
-      navigate();
+      initializeApp();
     </script>
   </body>
 </html>
-

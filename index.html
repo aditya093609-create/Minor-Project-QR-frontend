@@ -10,7 +10,7 @@
       rel="stylesheet"
     />
     <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode@2.3.4/minified/html5-qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css" /> 
     
@@ -56,7 +56,7 @@
       // =========================================================================
       
       // 🚨 IMPORTANT: Replace with your actual deployed IP/domain if not using localhost
-      const BASE_URL = "https://minor-project-qr-backend-1.onrender.com"; 
+      const BASE_URL = "http://127.0.0.1:5000"; 
       let user = JSON.parse(localStorage.getItem("user")) || null;
       const appContainer = document.getElementById("app-container");
       let qrCodeInstance = null;
@@ -564,7 +564,7 @@
 
           if (data) {
               const percentage = data.percentage;
-              const color = percentage >= 75 ? 'text-green-600' : 'text-red-600';
+              const color = percentage >= 75 ? 'text-green-600' : 'text-black-600';
               
               statsContainer.innerHTML = `
                   <div class="grid grid-cols-3 gap-4 text-center">
@@ -581,7 +581,7 @@
                           <p class="text-sm text-gray-500">Missed</p>
                       </div>
                   </div>
-                  <p class="text-4xl font-extrabold mt-6 text-center ${color}">Attendance: ${percentage}%</p>
+                  <p class="text-4xl font-bold mt-6 text-center ${color}">Attendance: ${percentage}%</p>
               `;
           } else {
               statsContainer.textContent = "Could not load statistics.";
@@ -728,4 +728,3 @@
     </script>
   </body>
 </html>
-

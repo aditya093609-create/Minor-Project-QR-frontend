@@ -57,7 +57,7 @@
       // CORE UTILITIES & STATE MANAGEMENT (Acts like a global 'app.js' module)
       // =========================================================================
 
-      const API_BASE = "https://minor-project-qr-backend-1.onrender.com";
+      const API_BASE = "http://127.0.0.1:5000";
 
       // Global State
       let user = JSON.parse(localStorage.getItem("user")) || null;
@@ -196,6 +196,11 @@
           welcomeMessage.textContent = "Please Login or Register";
           logoutBtn.classList.add("hidden");
           renderAuthView();
+          // Add this inside renderAdminDashboard() before the end of the function
+          // const today = new Date().toISOString().split("T")[0];
+          // const createDateInput = document.getElementById("attendance_date");
+          // if (createDateInput) {
+          //   createDateInput.value = today; // Default to today
         }
       }
 
@@ -482,105 +487,133 @@
         // Not strictly necessary, but helpful if the function is being called too rapidly.
       } // Holds the QRCode object
 
+      // index.html
       function renderAdminDashboard() {
-        contentDiv.innerHTML = `
-                <h2 class="text-3xl font-bold text-gray-900 mb-6 border-b pb-2">Admin Dashboard</h2>
-                
-                <div class="grid md:grid-cols-2 gap-8 mb-8">
-                    <!-- Create Session Card -->
-                    <div class="card p-6 bg-indigo-50 rounded-xl">
-                        <h3 class="text-2xl font-semibold text-indigo-700 mb-4">Start New Session</h3>
-                        <form id="create-session-form" class="space-y-3">
-                            <div>
-                                <input type="text" id="class_name" placeholder="Class Name (e.g., Computer Science 101)" required class="input-field">
-                            </div>
-                            <div>
-                                <input type="text" id="class_code" placeholder="Class Code (e.g., CS101)" required class="input-field">
-                            </div>
-                            <button type="submit" class="btn-primary w-full">Generate QR Code</button>
-                        </form>
-                    </div>
+    const today = new Date().toISOString().split('T')[0];
 
-                    <!-- QR Code Display -->
-                    <div class="card p-6 bg-white rounded-xl flex flex-col items-center">
-                        <h3 class="text-2xl font-semibold text-gray-700 mb-4">Active Session QR</h3>
-                        <div id="qrcode" class="p-2 border-4 border-indigo-500 rounded-lg bg-white mb-4">
-                            <p class="text-gray-500">Generate a session to see the QR code.</p>
+    contentDiv.innerHTML = `
+        <div class="flex flex-col space-y-6">
+            
+            <!-- 1. DATE FILTER (For viewing past records) -->
+            <div class="bg-white p-4 rounded-lg shadow flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-700">📅 View Attendance History</h3>
+                    <p class="text-sm text-gray-500">Select a date to filter the table below.</p>
+                </div>
+                <div>
+                    <input 
+                        type="date" 
+                        id="attendance-date" 
+                        value="${today}"
+                        class="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                        onchange="fetchAdminData()" 
+                    >
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- 2. CREATE SESSION FORM -->
+                <div class="card p-6 bg-indigo-50 rounded-xl">
+                    <h3 class="text-2xl font-semibold text-indigo-700 mb-4">Start New Session</h3>
+                    <form id="create-session-form" class="space-y-3">
+                        <div>
+                            <input type="text" id="class_name" placeholder="Class Name" required class="input-field">
                         </div>
-                        <p id="qr-token-display" class="text-sm text-gray-600 truncate w-full text-center"></p>
-                    </div>
+                        <div>
+                            <input type="text" id="class_code" placeholder="Class Code" required class="input-field">
+                        </div>
+                        
+                        <!-- 🌟 THIS IS THE MISSING INPUT THAT CAUSED THE ERROR 🌟 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Session Date (Required)</label>
+                            <input 
+                                type="date" 
+                                id="create_session_date" 
+                                value="${today}" 
+                                required 
+                                class="input-field border-indigo-300"
+                            >
+                        </div>
+
+                        <button type="submit" class="btn-primary w-full">Generate QR Code</button>
+                    </form>
                 </div>
 
-                <!-- Attendance Overview -->
+                <!-- QR Code Display -->
+                <div class="card p-6 bg-white rounded-xl flex flex-col items-center justify-center">
+                    <h3 class="text-2xl font-semibold text-gray-700 mb-4">Active Session QR</h3>
+                    <div id="qrcode" class="p-2 border-4 border-indigo-500 rounded-lg bg-white mb-4 min-h-[200px] flex items-center justify-center">
+                        <p class="text-gray-500">Generate a session to see QR.</p>
+                    </div>
+                    <p id="qr-token-display" class="text-sm text-gray-600 truncate w-full text-center"></p>
+                </div>
+            </div>
 
-                <div class="bg-white p-4 rounded-lg shadow mb-6 flex items-center space-x-4">
-    <div class="flex-grow">
-        <h3 class="text-lg font-bold text-gray-700">📅 Attendance Date Filter</h3>
-        <p class="text-sm text-gray-500">Select a date to view past attendance records.</p>
-    </div>
+            <!-- Stats Tables -->
+            <div class="mb-8">
+                <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Student Statistics</h3>
+                <div id="stats-table-container" class="overflow-x-auto"></div>
+            </div>
+            
+            <div class="mb-8">
+                <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Detailed Logs</h3>
+                <div id="records-table-container" class="overflow-x-auto"></div>
+            </div>
+        </div>
+    `;
     
-    <div>
-        <input 
-            type="date" 
-            id="attendance-date" 
-            class="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-            onchange="fetchAdminData()" 
-        >
-    </div>
-</div>
-
-                <div class="mb-8">
-                    <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Student Attendance Summary</h3>
-                    <div id="stats-table-container" class="overflow-x-auto">
-                        <!-- Stats Table will be injected here -->
-                    </div>
-                </div>
-
-                <!-- Detailed Attendance Records -->
-                <div class="mb-8">
-                    <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">All Attendance Records</h3>
-                    <button id="export-excel-btn" class="btn-secondary text-sm">Export to Excel</button> 
-                    </div>
-                    <div id="records-table-container" class="overflow-x-auto">
-                        <!-- Records Table will be injected here -->
-                    </div>
-                </div>
-            `;
-
-        document.getElementById("create-session-form").onsubmit =
-          handleCreateSession;
-        document
-          .getElementById("export-excel-btn")
-          .addEventListener("click", exportDataFromBackend);
-        fetchAdminData();
-      }
+    // Re-attach event listeners
+    document.getElementById('create-session-form').onsubmit = handleCreateSession;
+    fetchAdminData();
+}
 
       async function handleCreateSession(e) {
-        e.preventDefault();
-        const class_name = e.target.class_name.value;
-        const class_code = e.target.class_code.value;
+    e.preventDefault();
+    const class_name = document.getElementById('class_name').value;
+    const class_code = document.getElementById('class_code').value;
+    
+    // 🌟 SAFER ACCESS: Check if element exists first
+    const dateInput = document.getElementById('create_session_date');
+    if (!dateInput) {
+        console.error("Critical Error: 'create_session_date' input missing from DOM.");
+        showMessage('Error', 'Internal Error: Date input missing. Please refresh the page.');
+        return;
+    }
+    
+    const session_date = dateInput.value;
 
-        const data = await apiFetch("/admin/create_session", {
-          method: "POST",
-          body: JSON.stringify({
+    if (!session_date) {
+        showMessage('Error', 'Please select a date for the session.');
+        return;
+    }
+
+    const data = await apiFetch("/admin/create_session", {
+        method: "POST",
+        body: JSON.stringify({
             class_name,
             class_code,
             class_id: user.class_id,
-          }),
-        });
+            date: session_date 
+        }),
+    });
 
-        if (data) {
-          // 🚨 REMOVED: generateQrCode(data.qr_token);
-          // This is now handled by fetchAdminData()
-          showMessage(
+    if (data) {
+        showMessage(
             "Session Created",
-            `A new session for ${class_code} is active. Share the QR code with students.`
-          );
-          e.target.reset();
-          // CRITICAL: Call fetchAdminData to refresh the dashboard and generate the QR code
-          fetchAdminData();
-        }
-      }
+            `A new session for ${class_code} is active for ${session_date}.`
+        );
+        e.target.reset();
+        
+        // Reset date to today
+        if(dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+        
+        // Update filter to match created session so you see it immediately
+        const filterInput = document.getElementById('attendance-date');
+        if (filterInput) filterInput.value = session_date;
+
+        fetchAdminData();
+    }
+}
 
       async function exportDataFromBackend(
         filename = "All_Attendance_Records"
@@ -923,49 +956,37 @@
       // =========================================================================
 
       function renderStudentDashboard() {
-        contentDiv.innerHTML = `
-                <h2 class="text-3xl font-bold text-gray-900 mb-6 border-b pb-2">Student Dashboard</h2>
+    contentDiv.innerHTML = `
+        <div class="max-w-xl mx-auto p-8 bg-white shadow-xl rounded-lg">
+            <h2 class="text-3xl font-bold text-indigo-700 mb-6">Attendance Scanner 📱</h2>
+            <p class="text-gray-600 mb-8">Hello, **${user.name}**! Enter the QR Token provided by your Admin to mark your attendance for the active class.</p>
+
+            <form id="mark-attendance-form" class="space-y-4">
+                <p class="text-sm font-medium text-gray-500">Your Student ID: ${user.user_id}</p>
                 
-                <div class="grid md:grid-cols-2 gap-8 mb-8">
-                    <!-- Attendance Marker Card: Controlled by Button -->
-                    <div class="card p-6 bg-indigo-50 rounded-xl flex flex-col justify-between">
-                        <div>
-                            <h3 class="text-2xl font-semibold text-indigo-700 mb-4">Scan QR to Mark Attendance</h3>
-                            <p class="text-gray-600 mb-4">Click "Start Camera" to enable QR scanning and mark your attendance.</p>
-                            
-                            <!-- Scanner Controls -->
-                            <div id="scanner-controls" class="space-y-4 mb-4">
-                                <button id="start-scan-btn" class="btn-primary w-full">Start Camera</button>
-                                <button id="stop-scan-btn" class="btn-danger w-full hidden">Stop Camera</button>
-                            </div>
-
-                            <!-- QR Scanner Container -->
-                            <div id="reader" class="my-4 hidden"></div>
-                            <p id="scan-status" class="text-center text-sm font-medium text-gray-500">Scanner is inactive.</p>
-                        </div>
-                    </div>
-
-                    <!-- Personal Stats Card -->
-                    <div id="student-stats-card" class="card p-6 bg-white rounded-xl">
-                        <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Your Statistics</h3>
-                        <div id="stats-content" class="space-y-2 text-lg">
-                            <p>Loading stats...</p>
-                        </div>
-                    </div>
+                <div>
+                    <label for="qr_token_input" class="block text-sm font-medium text-gray-700">QR Code Token</label>
+                    <input type="text" id="qr_token_input" required placeholder="Enter 8-digit token (e.g., A1B2C3D4)" class="input-field uppercase tracking-wider">
                 </div>
-            `;
 
-        // Attach event listeners to the new buttons
-        document
-          .getElementById("start-scan-btn")
-          .addEventListener("click", startQrScanner);
-        document
-          .getElementById("stop-scan-btn")
-          .addEventListener("click", () => stopQrScanner(false));
+                <button type="submit" class="btn-primary w-full py-3">Mark Attendance</button>
+            </form>
 
-        // Fetch stats immediately
-        fetchStudentStats(user.user_id);
-      }
+            <div id="attendance-status" class="mt-6 p-4 rounded-lg bg-gray-100 text-center hidden"></div>
+            
+            
+
+[Image of QR code scanner interface on a smartphone]
+
+
+            <h3 class="text-xl font-semibold text-gray-700 mt-10 mb-4 border-t pt-4">Your Overall Attendance</h3>
+            <div id="student-stats-container">Loading statistics...</div>
+        </div>
+    `;
+    // Attach the submission handler and fetch initial stats
+    document.getElementById('mark-attendance-form').onsubmit = handleMarkAttendance;
+    fetchStudentStats();
+}
 
       /** * Stops the active QR scanner and resets control buttons. */
       function startQrScanner() {
@@ -1021,69 +1042,68 @@
             stopQrScanner(true);
           });
       }
-      async function handleMarkAttendance(qr_token_raw) {
-        // Ensure the token is clean and matches the case used by the backend
-        // Assuming your backend expects uppercase and needs whitespace removed.
-        const qr_token = qr_token_raw.trim().toUpperCase();
+      async function handleMarkAttendance(e) {
+    e.preventDefault();
+    const qr_token = document.getElementById('qr_token_input').value.trim();
+    const student_id = user.user_id;
+    const statusDiv = document.getElementById('attendance-status');
+    
+    statusDiv.className = 'mt-6 p-4 rounded-lg bg-yellow-100 text-yellow-800 text-center';
+    statusDiv.textContent = 'Submitting attendance...';
+    statusDiv.style.display = 'block';
 
-        const data = await apiFetch("/student/mark_attendance", {
-          method: "POST",
-          body: JSON.stringify({
-            student_id: user.user_id,
-            qr_token: qr_token,
-          }),
-        });
+    const data = await apiFetch("/student/mark_attendance", {
+        method: "POST",
+        body: JSON.stringify({ student_id, qr_token }),
+    });
 
-        if (data) {
-          // Stop scanner upon successful attendance marking
-          stopQrScanner(true);
-          showMessage("Attendance Marked!", data.message);
-          fetchStudentStats(user.user_id);
-        }
-      }
+    if (data && data.status) {
+        statusDiv.className = 'mt-6 p-4 rounded-lg bg-green-100 text-green-800 text-center font-bold';
+        statusDiv.textContent = data.message;
+        e.target.reset(); // Clear token input
+        fetchStudentStats(); // Refresh stats immediately
+    } else if (data && data.error) {
+        statusDiv.className = 'mt-6 p-4 rounded-lg bg-red-100 text-red-800 text-center font-bold';
+        statusDiv.textContent = `Error: ${data.error}`;
+    }
+}
+async function fetchStudentStats() {
+    const statsContainer = document.getElementById('student-stats-container');
+    const student_id = user.user_id;
 
-      async function fetchStudentStats(studentId) {
-        const data = await apiFetch(`/student/stats/${studentId}`, {
-          method: "GET",
-        });
-        const statsContent = document.getElementById("stats-content");
+    // Ensure the user object exists before fetching
+    if (!student_id) {
+        statsContainer.textContent = "Error: Student ID not available.";
+        return;
+    }
 
-        if (data && statsContent) {
-          // Safely calculate corrected values based on backend data
-          const totalClasses = data.total_classes || 0;
-          // Cap attended at the total classes to prevent over-attendance
-          const attendedCapped = Math.min(data.attended || 0, totalClasses);
+    const data = await apiFetch(`/student/stats/${student_id}`, { method: "GET" });
 
-          // Calculate Missed (will be 0 if attended > total)
-          const missedCapped = Math.max(0, totalClasses - attendedCapped);
-
-          // Calculate Percentage (will be max 100% if attended > total)
-          let percentageCapped = 0;
-          if (totalClasses > 0) {
-            percentageCapped = Math.min(
-              100,
-              Math.round((attendedCapped / totalClasses) * 100)
-            );
-          }
-
-          const percentageColor =
-            percentageCapped >= 50 ? "text-green-600" : "text-red-600";
-
-          statsContent.innerHTML = `
-                    <p><span class="font-bold text-indigo-700">Roll Number:</span> ${
-                      user.rollno || "N/A"
-                    }</p> 
-                    <p><span class="font-bold text-indigo-700">Total Classes:</span> ${totalClasses}</p>
-                    <p><span class="font-bold text-green-700">Attended:</span> ${attendedCapped}</p>
-                    <p><span class="font-bold text-red-700">Missed:</span> ${missedCapped}</p>
-                    <p class="pt-4 text-2xl font-extrabold ${percentageColor}">Attendance Rate: ${percentageCapped}%</p>
-                `;
-        } else if (statsContent) {
-          statsContent.innerHTML =
-            '<p class="text-gray-500">Could not load statistics.</p>';
-        }
-      }
-
+    if (data) {
+        const percentage = data.percentage;
+        const color = percentage >= 75 ? 'text-green-600' : 'text-red-600';
+        
+        statsContainer.innerHTML = `
+            <div class="grid grid-cols-3 gap-4 text-center">
+                <div class="p-3 border rounded-lg bg-blue-50">
+                    <p class="text-2xl font-bold text-blue-700">${data.total_classes}</p>
+                    <p class="text-sm text-gray-500">Total Classes</p>
+                </div>
+                <div class="p-3 border rounded-lg bg-green-50">
+                    <p class="text-2xl font-bold text-green-700">${data.attended}</p>
+                    <p class="text-sm text-gray-500">Attended</p>
+                </div>
+                <div class="p-3 border rounded-lg bg-red-50">
+                    <p class="text-2xl font-bold text-red-700">${data.missed}</p>
+                    <p class="text-sm text-gray-500">Missed</p>
+                </div>
+            </div>
+            <p class="text-4xl font-extrabold mt-6 ${color}">Attendance: ${percentage}%</p>
+        `;
+    } else {
+        statsContainer.textContent = "Could not load statistics.";
+    }
+}
       // =========================================================================
       // INITIALIZATION
       // =========================================================================
@@ -1095,4 +1115,3 @@
     </script>
   </body>
 </html>
-

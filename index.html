@@ -5,28 +5,136 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>QR Attendance System</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body class="min-h-screen flex items-center justify-center p-4 bg-gray-50 font-sans">
     
-    <div id="message-modal" class="modal fixed inset-0 hidden items-center justify-center p-4 z-50">
-      <div class="bg-black opacity-50 absolute inset-0"></div>
-      <div class="bg-white card p-6 rounded-xl shadow-2xl z-10 max-w-sm w-full">
-        <h3 id="modal-title" class="text-xl font-bold mb-2"></h3>
-        <p id="modal-body" class="text-gray-700 mb-4"></p>
-        <button onclick="document.getElementById('message-modal').classList.add('hidden')" class="btn-primary w-full">OK</button>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                50: '#f0f9ff',
+                100: '#e0f2fe',
+                200: '#bae6fd',
+                300: '#7dd3fc',
+                400: '#38bdf8',
+                500: '#0ea5e9',
+                600: '#0284c7',
+                700: '#0369a1',
+                800: '#075985',
+                900: '#0c4a6e',
+              },
+              gradient: {
+                start: '#667eea',
+                end: '#764ba2'
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', 'system-ui', 'sans-serif'],
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-in-out',
+              'slide-up': 'slideUp 0.5s ease-out',
+              'pulse-slow': 'pulse 3s infinite',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      
+      .glass-effect {
+        background: rgba(255, 255, 255, 0.25);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+      }
+      
+      .gradient-bg {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+      
+      .card-hover {
+        transition: all 0.3s ease;
+      }
+      
+      .card-hover:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      }
+      
+      .scanner-glow {
+        box-shadow: 0 0 20px rgba(79, 70, 229, 0.3);
+      }
+      
+      /* Custom scrollbar */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 10px;
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+      }
+      
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen gradient-bg">
+    
+    <!-- Modern Modal -->
+    <div id="message-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-auto animate-slide-up overflow-hidden">
+        <div class="p-6">
+          <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-primary-100">
+            <i class="fas fa-info-circle text-primary-600 text-xl"></i>
+          </div>
+          <h3 id="modal-title" class="text-xl font-bold text-center text-gray-900 mb-2"></h3>
+          <p id="modal-body" class="text-gray-600 text-center mb-6"></p>
+        </div>
+        <div class="bg-gray-50 px-6 py-4 flex justify-center">
+          <button onclick="document.getElementById('message-modal').classList.add('hidden')" 
+                  class="px-6 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+            OK
+          </button>
+        </div>
       </div>
     </div>
     
-    <main id="app-container" class="w-full max-w-7xl">
-      <h1 class="text-center text-4xl font-extrabold text-indigo-700 my-8">Loading...</h1>
+    <!-- Main App Container -->
+    <main id="app-container" class="min-h-screen flex items-center justify-center p-4">
+      <div class="w-full max-w-7xl">
+        <h1 class="text-center text-4xl md:text-5xl font-extrabold text-white mb-8 animate-fade-in">
+          <i class="fas fa-qrcode mr-3"></i>QR Attendance System
+        </h1>
+        <div id="content-container" class="animate-fade-in">
+          <!-- Content will be rendered here -->
+        </div>
+      </div>
     </main>
 
     <script>
@@ -34,12 +142,11 @@
       // GLOBAL CONFIGURATION & STATE
       // =========================================================================
       
-      // 🚨 IMPORTANT: Replace with your actual deployed IP/domain if not using localhost
-      const BASE_URL = "https://minor-project-qr-backend-1.onrender.com"; 
+      const BASE_URL = "http://127.0.0.1:5000"; 
       let user = JSON.parse(localStorage.getItem("user")) || null;
-      const appContainer = document.getElementById("app-container");
+      const contentContainer = document.getElementById("content-container");
       let qrCodeInstance = null;
-      let qrCodeScanner = null; // Global instance for HTML5 QR Code scanner
+      let qrCodeScanner = null;
 
       // =========================================================================
       // UTILITIES
@@ -83,37 +190,28 @@
         const qrDiv = document.getElementById("qrcode");
         if (!qrDiv) return;
 
-        qrDiv.innerHTML = ""; // Clear existing QR
+        qrDiv.innerHTML = "";
         qrCodeInstance = new QRCode(qrDiv, {
           text: token,
-          width: 128,
-          height: 128,
-          colorDark: "#4f46e5",
+          width: 180,
+          height: 180,
+          colorDark: "#0ea5e9",
           colorLight: "#ffffff",
           correctLevel: QRCode.CorrectLevel.H,
         });
 
         document.getElementById("qr-token-display").textContent = token;
       }
-      
+
       // =========================================================================
-      // ADMIN DASHBOARD FUNCTIONS
+      // ADMIN DASHBOARD - MODERN UI
       // =========================================================================
       
-      // 🚨 FIX: Refactored to read the new 'create_session_date' ID and send it to backend.
       async function handleCreateSession(e) {
         e.preventDefault();
         const class_name = document.getElementById('class_name').value;
         const class_code = document.getElementById('class_code').value;
-        
-        // 🎯 CRITICAL FIX: Ensure the correct ID is read
-        const dateInput = document.getElementById('create_session_date');
-        if (!dateInput) {
-            showMessage('Error', 'UI Error: Session Date input missing. Please refresh.');
-            return;
-        }
-        
-        const session_date = dateInput.value;
+        const session_date = document.getElementById('create_session_date').value;
 
         if (!session_date) {
             showMessage('Error', 'Please select a date for the session.');
@@ -126,49 +224,38 @@
                 class_name,
                 class_code,
                 class_id: user.class_id,
-                date: session_date // 🌟 Send specific date to backend
+                date: session_date
             }),
         });
 
         if (data) {
-            showMessage(
-                "Session Created",
-                `New session for ${class_code} active for ${session_date}.`
-            );
+            showMessage("Session Created", `New session for ${class_code} active for ${session_date}.`);
             
-            // Auto-switch the dashboard filter to the created date
             const filterInput = document.getElementById('attendance-date');
             if (filterInput) {
                 filterInput.value = session_date;
             }
 
-            // Generate QR code for the new token and refresh data
             generateQrCode(data.qr_token);
             fetchAdminData();
         }
       }
 
       async function fetchAdminData() {
-        if (!user || !user.class_id) {
-            console.error("User or Class ID missing.");
-            return; 
-        }
+        if (!user || !user.class_id) return;
 
         const dateInput = document.getElementById('attendance-date');
-        // Default to today if input doesn't exist yet, otherwise use input value
         const selectedDate = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
         
-        // Ensure the input visual shows the date being used
         if (dateInput && !dateInput.value) {
             dateInput.value = selectedDate;
         }
 
         const data = await apiFetch("/admin/attendance", {
             method: "POST", 
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
                 class_id: user.class_id,
-                date: selectedDate // 🌟 SEND DATE TO BACKEND for filtering
+                date: selectedDate
             }),
         });
 
@@ -176,17 +263,15 @@
             renderStatsTable(data.stats || []); 
             renderRecordsTable(data.records || []);
 
-            // Handle QR Code Display on Data Fetch
             const token = data.current_qr_token;
             if (token) {
-                // Only generate if the instance doesn't exist or is for a different token
                 const currentTokenDisplay = document.getElementById("qr-token-display");
                 if (!qrCodeInstance || currentTokenDisplay.textContent !== token) {
                     generateQrCode(token);
                 }
             } else {
                 const qrDiv = document.getElementById("qrcode");
-                qrDiv.innerHTML = '<p class="text-gray-500 text-center">No active session found. Create one above.</p>';
+                qrDiv.innerHTML = '<div class="text-center p-8"><i class="fas fa-qrcode text-4xl text-gray-300 mb-2"></i><p class="text-gray-500">No active session found</p></div>';
                 document.getElementById("qr-token-display").textContent = "";
             }
         }
@@ -196,52 +281,70 @@
         const container = document.getElementById("stats-table-container");
         if (!container) return;
         
-        // Safety check for empty stats
-        if (stats.length === 0 || (stats.length > 0 && stats[0].total === 0)) {
-            container.innerHTML =
-                '<p class="text-gray-500">No session data or student data found for this date/class.</p>';
+        if (stats.length === 0) {
+            container.innerHTML = `
+              <div class="text-center py-12">
+                <i class="fas fa-chart-bar text-4xl text-gray-300 mb-3"></i>
+                <p class="text-gray-500">No session data found for this date</p>
+              </div>
+            `;
             return;
         }
 
         const tableHTML = `
-                <table class="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
-                    <thead class="bg-indigo-600 text-white">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Student Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Roll No</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Attended</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Total Sessions</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Percentage</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        ${stats.map(stat => `
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${stat.name}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${stat.rollno || "N/A"}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${stat.attended}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${stat.total}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold ${stat.percentage < 75 ? "text-red-600" : "text-green-600"}">${stat.percentage}%</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <button 
-                                        onclick="handleDeleteStudentPrompt('${stat.id}', '${stat.name}')" 
-                                        class="bg-red-100 text-red-700 hover:bg-red-200 border border-red-300 font-bold py-1 px-3 rounded text-xs transition duration-150"
-                                    >
-                                        Delete Student
-                                    </button>
-                                </td>
-                            </tr>
-                        `).join("")}
-                    </tbody>
-                </table>
-            `;
+          <div class="overflow-x-auto custom-scrollbar rounded-xl">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gradient-to-r from-primary-600 to-primary-700">
+                <tr>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Student</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Roll No</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Attendance</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Percentage</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                ${stats.map(stat => `
+                  <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="flex items-center">
+                        <div class="flex-shrink-0 h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center">
+                          <i class="fas fa-user text-primary-600"></i>
+                        </div>
+                        <div class="ml-4">
+                          <div class="text-sm font-medium text-gray-900">${stat.name}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${stat.rollno || "N/A"}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">${stat.attended}/${stat.total}</div>
+                      <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-primary-600 h-2 rounded-full" style="width: ${(stat.attended/stat.total)*100}%"></div>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${stat.percentage < 75 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                        ${stat.percentage}%
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button onclick="handleDeleteStudentPrompt('${stat.id}', '${stat.name}')" 
+                              class="text-red-600 hover:text-red-900 transition-colors">
+                        <i class="fas fa-trash-alt mr-1"></i>Delete
+                      </button>
+                    </td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
         container.innerHTML = tableHTML;
       }
       
-      // Stub function for the delete button (requires confirmation)
       function handleDeleteStudentPrompt(student_id, student_name) {
-          if (confirm(`Are you sure you want to delete student: ${student_name}? This action is irreversible and deletes all records.`)) {
+          if (confirm(`Are you sure you want to delete student: ${student_name}? This action is irreversible.`)) {
               handleDeleteStudent(student_id);
           }
       }
@@ -254,13 +357,8 @@
 
           if (data) {
               showMessage("Success", data.message);
-              fetchAdminData(); // Refresh table
+              fetchAdminData();
           }
-      }
-      
-      function updateAttendanceStatusHandler() {
-          showMessage("Manual Update", "This feature needs a specific UI. Look at the 'Detailed Attendance Log' below and consider filtering by student to update specific records.");
-          // A full implementation requires asking for record ID, new status, and calling /admin/update_attendance
       }
       
       function renderRecordsTable(records) {
@@ -268,48 +366,58 @@
         if (!container) return;
         
         if (records.length === 0) {
-            container.innerHTML =
-                '<p class="text-gray-500">No attendance records found for the selected date.</p>';
+            container.innerHTML = `
+              <div class="text-center py-12">
+                <i class="fas fa-clipboard-list text-4xl text-gray-300 mb-3"></i>
+                <p class="text-gray-500">No attendance records found</p>
+              </div>
+            `;
             return;
         }
 
         const tableHTML = `
-                <table class="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
-                    <thead class="bg-gray-700 text-white">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Student Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Roll No</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Class Code</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Time</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        ${records.map(record => {
-                            const date = new Date(record.timestamp * 1000).toLocaleString();
-                            const statusColor = record.status === 'Present' ? 'text-green-600 font-bold' : 'text-red-600';
-                            return `
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${record.student_name}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${record.roll_no || "N/A"}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${record.class_code}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm ${statusColor}">${record.status}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${date}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <button 
-                                            onclick="toggleAttendanceStatus('${record.id}', '${record.status}')" 
-                                            class="bg-blue-100 text-blue-700 hover:bg-blue-200 font-bold py-1 px-3 rounded text-xs transition duration-150"
-                                        >
-                                            Toggle to ${record.status === 'Present' ? 'Absent' : 'Present'}
-                                        </button>
-                                    </td>
-                                </tr>
-                            `;
-                        }).join("")}
-                    </tbody>
-                </table>
-            `;
+          <div class="overflow-x-auto custom-scrollbar rounded-xl">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gradient-to-r from-gray-700 to-gray-800">
+                <tr>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Student</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Class</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Status</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Time</th>
+                  <th class="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                ${records.map(record => {
+                    const date = new Date(record.timestamp * 1000).toLocaleString();
+                    const statusColor = record.status === 'Present' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                    const statusIcon = record.status === 'Present' ? 'fa-check-circle' : 'fa-times-circle';
+                    return `
+                      <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                          <div class="text-sm font-medium text-gray-900">${record.student_name}</div>
+                          <div class="text-sm text-gray-500">${record.roll_no || "N/A"}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${record.class_code}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                          <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusColor}">
+                            <i class="fas ${statusIcon} mr-1"></i>${record.status}
+                          </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${date}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button onclick="toggleAttendanceStatus('${record.id}', '${record.status}')" 
+                                  class="text-primary-600 hover:text-primary-900 transition-colors">
+                            <i class="fas fa-sync-alt mr-1"></i>Toggle
+                          </button>
+                        </td>
+                      </tr>
+                    `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
         container.innerHTML = tableHTML;
       }
       
@@ -322,119 +430,145 @@
           });
 
           if (data) {
-              showMessage("Update Successful", `Record ${record_id} status changed to ${new_status}.`);
-              fetchAdminData(); // Refresh table
+              showMessage("Update Successful", `Attendance status changed to ${new_status}.`);
+              fetchAdminData();
           }
       }
 
-      // 🚨 FIX: Corrected function to prevent QR generation errors
       function renderAdminDashboard() {
         const today = new Date().toISOString().split('T')[0];
 
-        appContainer.innerHTML = `
-            <div class="flex flex-col space-y-8">
-                <div class="flex justify-between items-center border-b pb-4">
-                    <h2 class="text-4xl font-extrabold text-indigo-700">Admin Dashboard</h2>
-                    <button onclick="handleLogout()" class="btn-secondary">Logout</button>
+        contentContainer.innerHTML = `
+          <div class="space-y-8 animate-fade-in">
+            <!-- Header -->
+            <div class="glass-effect rounded-2xl p-6">
+              <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h2 class="text-3xl font-bold text-white">Admin Dashboard</h2>
+                  <p class="text-white text-opacity-90 mt-2">Welcome back, <span class="font-semibold">${user.name}</span></p>
                 </div>
-
-                <div class="bg-indigo-50 p-4 rounded-lg text-sm text-indigo-800 shadow-inner">
-                    <p>Welcome, <strong>${user.name}</strong>. Managing Class ID: <strong>${user.class_id}</strong></p>
+                <div class="flex items-center gap-4">
+                  <div class="bg-white bg-opacity-20 rounded-lg px-4 py-2">
+                    <p class="text-white text-sm">Class ID: <span class="font-semibold">${user.class_id}</span></p>
+                  </div>
+                  <button onclick="handleLogout()" 
+                          class="bg-white text-primary-600 px-4 py-2 rounded-lg font-semibold hover:bg-opacity-90 transition-all duration-200 flex items-center gap-2">
+                    <i class="fas fa-sign-out-alt"></i>Logout
+                  </button>
                 </div>
-
-                <div class="bg-white p-5 rounded-xl shadow-lg border border-gray-100 flex items-center justify-between">
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-700">📅 View Attendance History</h3>
-                        <p class="text-sm text-gray-500">Select a date to filter the statistics and records below.</p>
-                    </div>
-                    <div>
-                        <input 
-                            type="date" 
-                            id="attendance-date" 
-                            value="${today}"
-                            class="p-3 border-2 border-indigo-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
-                            onchange="fetchAdminData()" 
-                        >
-                    </div>
-                </div>
-                
-                <div class="grid md:grid-cols-3 gap-8">
-                    
-                    <div class="card p-6 bg-indigo-50 rounded-xl shadow-xl col-span-2">
-                        <h3 class="text-2xl font-semibold text-indigo-700 mb-4">Start New Session (Generate QR)</h3>
-                        <form id="create-session-form" class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-indigo-700 mb-1">Class Name</label>
-                                <input type="text" id="class_name" placeholder="E.g., Computer Science" required class="input-field">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-indigo-700 mb-1">Class Code</label>
-                                <input type="text" id="class_code" placeholder="E.g., CS101" required class="input-field">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-indigo-700 mb-1">Session Date (Required)</label>
-                                <input 
-                                    type="date" 
-                                    id="create_session_date" 
-                                    value="${today}" 
-                                    required 
-                                    class="input-field border-indigo-500"
-                                >
-                            </div>
-
-                            <button type="submit" class="btn-primary w-full py-2 bg-indigo-600 hover:bg-indigo-700 transition duration-150">Generate New QR Code</button>
-                        </form>
-                    </div>
-
-                    <div class="card p-6 bg-white rounded-xl shadow-xl flex flex-col items-center justify-center border-4 border-indigo-200">
-                        <h3 class="text-xl font-semibold text-gray-700 mb-3">Active QR Token</h3>
-                        <div id="qrcode" class="p-3 border-4 border-indigo-500 rounded-lg bg-white mb-4 min-h-[150px] flex items-center justify-center">
-                            <p class="text-gray-500 text-center">Generate a session to see QR.</p>
-                        </div>
-                        <p id="qr-token-display" class="text-lg font-bold text-indigo-600 truncate w-full text-center"></p>
-                    </div>
-                </div>
-                
-                <div class="bg-gray-50 p-5 rounded-xl shadow-inner border border-gray-200">
-                    <h3 class="text-xl font-bold text-gray-700 mb-4">Quick Actions</h3>
-                    <div class="grid grid-cols-2 gap-4">
-                        <button onclick="updateAttendanceStatusHandler()" class="btn-secondary py-2 bg-teal-500 hover:bg-teal-600 text-white">
-                            Manually Update Attendance
-                        </button>
-                        <button onclick="handleDeleteStudentPrompt()" class="btn-secondary py-2 bg-red-500 hover:bg-red-600 text-white">
-                            Delete Student
-                        </button>
-                    </div>
-                </div>
-
-                <div class="mb-8">
-                    <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Student Statistics (Filtered)</h3>
-                    <div id="stats-table-container" class="overflow-x-auto bg-white p-4 rounded-lg shadow"></div>
-                </div>
-
-                <div class="mb-8">
-                    <h3 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Detailed Attendance Log (Filtered)</h3>
-                    <div id="records-table-container" class="overflow-x-auto bg-white p-4 rounded-lg shadow"></div>
-                </div>
+              </div>
             </div>
+
+            <!-- Quick Actions & Date Filter -->
+            <div class="grid md:grid-cols-3 gap-6">
+              <div class="md:col-span-2 glass-effect rounded-2xl p-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <h3 class="text-xl font-semibold text-white mb-2">📅 Attendance Overview</h3>
+                    <p class="text-white text-opacity-80 text-sm">View and filter attendance records</p>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <input type="date" id="attendance-date" value="${today}"
+                           class="bg-white bg-opacity-20 border border-white border-opacity-30 rounded-lg px-4 py-2 text-white placeholder-white placeholder-opacity-70 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50">
+                  </div>
+                </div>
+              </div>
+              
+              <div class="glass-effect rounded-2xl p-6 flex items-center justify-center">
+                <div class="text-center">
+                  <div class="text-3xl font-bold text-white mb-2">${new Date().getDate()}</div>
+                  <div class="text-white text-opacity-80 text-sm">${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Session Creation & QR Code -->
+            <div class="grid lg:grid-cols-3 gap-8">
+              <!-- Session Form -->
+              <div class="lg:col-span-2 bg-white rounded-2xl shadow-xl p-6 card-hover">
+                <div class="flex items-center gap-3 mb-6">
+                  <div class="w-2 h-8 bg-primary-500 rounded-full"></div>
+                  <h3 class="text-2xl font-bold text-gray-800">Create New Session</h3>
+                </div>
+                <form id="create-session-form" class="space-y-4">
+                  <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">Class Name</label>
+                      <input type="text" id="class_name" placeholder="Computer Science" required 
+                             class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200">
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-2">Class Code</label>
+                      <input type="text" id="class_code" placeholder="CS101" required 
+                             class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200">
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Session Date</label>
+                    <input type="date" id="create_session_date" value="${today}" required 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200">
+                  </div>
+                  <button type="submit" 
+                          class="w-full bg-gradient-to-r from-primary-600 to-primary-700 text-white py-3 px-6 rounded-xl font-semibold hover:from-primary-700 hover:to-primary-800 transition-all duration-200 transform hover:scale-105 flex items-center justify-center gap-2">
+                    <i class="fas fa-qrcode"></i>Generate QR Session
+                  </button>
+                </form>
+              </div>
+
+              <!-- QR Code Display -->
+              <div class="bg-white rounded-2xl shadow-xl p-6 card-hover flex flex-col items-center justify-center">
+                <div class="text-center mb-4">
+                  <i class="fas fa-expand-alt text-3xl text-primary-600 mb-2"></i>
+                  <h3 class="text-xl font-semibold text-gray-800">Active QR Code</h3>
+                </div>
+                <div id="qrcode" class="p-4 border-4 border-primary-100 rounded-2xl bg-white mb-4 min-h-[200px] flex items-center justify-center">
+                  <div class="text-center">
+                    <i class="fas fa-qrcode text-4xl text-gray-300 mb-2"></i>
+                    <p class="text-gray-500">Generate a session to see QR</p>
+                  </div>
+                </div>
+                <div id="qr-token-display" class="bg-primary-50 text-primary-700 px-4 py-2 rounded-lg font-mono text-sm w-full text-center truncate"></div>
+              </div>
+            </div>
+
+            <!-- Statistics and Records -->
+            <div class="space-y-8">
+              <!-- Student Statistics -->
+              <div class="bg-white rounded-2xl shadow-xl p-6 card-hover">
+                <div class="flex items-center justify-between mb-6">
+                  <div class="flex items-center gap-3">
+                    <div class="w-2 h-8 bg-primary-500 rounded-full"></div>
+                    <h3 class="text-2xl font-bold text-gray-800">Student Statistics</h3>
+                  </div>
+                  <div class="bg-primary-50 text-primary-700 px-3 py-1 rounded-full text-sm font-medium">
+                    ${today}
+                  </div>
+                </div>
+                <div id="stats-table-container" class="animate-fade-in"></div>
+              </div>
+
+              <!-- Attendance Records -->
+              <div class="bg-white rounded-2xl shadow-xl p-6 card-hover">
+                <div class="flex items-center gap-3 mb-6">
+                  <div class="w-2 h-8 bg-primary-500 rounded-full"></div>
+                  <h3 class="text-2xl font-bold text-gray-800">Attendance Records</h3>
+                </div>
+                <div id="records-table-container" class="animate-fade-in"></div>
+              </div>
+            </div>
+          </div>
         `;
         
-        // Attach event listener for session creation
         document.getElementById('create-session-form').onsubmit = handleCreateSession;
+        document.getElementById('attendance-date').addEventListener('change', fetchAdminData);
         
-        // Initial Data Fetch based on today's date
         fetchAdminData();
       }
 
       // =========================================================================
-      // STUDENT DASHBOARD FUNCTIONS (CAMERA SCANNER)
+      // STUDENT DASHBOARD - MODERN UI
       // =========================================================================
       
-      // 🚨 NEW: Global instance for HTML5 QR Code scanner
-      // let qrCodeScanner = null; (Declared globally at the top)
-
-      // 🚨 NEW: Function to initiate the camera scanner
       function startQrScanner() {
           const containerId = "scanner-container";
           const statusDiv = document.getElementById('attendance-status');
@@ -445,46 +579,28 @@
           
           qrCodeScanner = new Html5Qrcode(containerId);
 
-          const html5QrCodeConfig = { fps: 10, qrbox: { width: 250, height: 250 } };
-
           qrCodeScanner.start(
-              { facingMode: "environment" }, // Request rear camera
-              html5QrCodeConfig,
-              
-              // Success Callback: When a QR code is detected
-              (decodedText, decodedResult) => {
-                  // Stop scanning immediately upon success
+              { facingMode: "environment" },
+              { fps: 10, qrbox: { width: 250, height: 250 } },
+              (decodedText) => {
                   qrCodeScanner.stop().then(() => {
-                      const qr_token = decodedText.trim().toUpperCase();
-                      // Submit the token to the backend
-                      handleMarkAttendance(qr_token); 
-                  }).catch(err => {
-                      // Attempt to submit even if stopping fails
-                      handleMarkAttendance(decodedText.trim().toUpperCase());
-                      console.error("Error stopping scanner after success:", err);
-                  });
+                      handleMarkAttendance(decodedText.trim().toUpperCase()); 
+                  }).catch(console.error);
               },
-              
-              // Error Callback (Show error only if camera fails to start)
-              (errorMessage) => {
-                  // This is called constantly, so only log for debugging
-                  // console.log("QR Code Scan Error:", errorMessage);
-              }
+              () => {}
           ).catch((err) => {
-              statusDiv.className = 'mt-4 p-4 rounded-lg bg-red-100 text-red-800 text-center font-bold';
-              statusDiv.textContent = `Camera Error: Could not start scanner. Check permissions or refresh.`;
+              statusDiv.className = 'p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-center';
+              statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>Camera Error: Check permissions and refresh';
               statusDiv.style.display = 'block';
-              console.error("Failed to start scanner:", err);
           });
       }
       
-      // 🚨 REFACTORED: Now accepts the token directly from the scanner
       async function handleMarkAttendance(qr_token) {
           const student_id = user.user_id;
           const statusDiv = document.getElementById('attendance-status');
           
-          statusDiv.className = 'mt-6 p-4 rounded-lg bg-yellow-100 text-yellow-800 text-center';
-          statusDiv.textContent = `Submitting attendance...`;
+          statusDiv.className = 'p-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-700 text-center';
+          statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Submitting attendance...';
           statusDiv.style.display = 'block';
 
           const data = await apiFetch("/student/mark_attendance", {
@@ -493,43 +609,50 @@
           });
 
           if (data && data.status) {
-              statusDiv.className = 'mt-6 p-4 rounded-lg bg-green-100 text-green-800 text-center font-bold';
-              statusDiv.textContent = data.message + " Scanner stopped.";
-              
-              fetchStudentStats(); // Refresh stats immediately
-              
+              statusDiv.className = 'p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-center';
+              statusDiv.innerHTML = `<i class="fas fa-check-circle mr-2"></i>${data.message}`;
+              fetchStudentStats();
           } else if (data && data.error) {
-              statusDiv.className = 'mt-6 p-4 rounded-lg bg-red-100 text-red-800 text-center font-bold';
-              statusDiv.textContent = `Error: ${data.error}`;
-
-              // If attendance failed, restart scanner to allow re-scan
-              if (qrCodeScanner && !qrCodeScanner.isScanning) {
-                  qrCodeScanner.start().catch(console.error);
-              }
+              statusDiv.className = 'p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-center';
+              statusDiv.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i>${data.error}`;
           }
       }
 
       function renderStudentDashboard() {
-          appContainer.innerHTML = `
-              <div class="max-w-xl mx-auto p-8 bg-white shadow-xl rounded-lg border-2 border-indigo-200">
-                  <div class="flex justify-between items-center mb-6 border-b pb-3">
-                      <h2 class="text-3xl font-bold text-indigo-700">Attendance Scanner 📸</h2>
-                      <button onclick="handleLogout()" class="btn-secondary">Logout</button>
+          contentContainer.innerHTML = `
+            <div class="max-w-2xl mx-auto animate-fade-in">
+              <!-- Scanner Card -->
+              <div class="glass-effect rounded-2xl p-8 text-center mb-6">
+                <div class="flex justify-between items-center mb-6">
+                  <h2 class="text-3xl font-bold text-white">Attendance Scanner</h2>
+                  <button onclick="handleLogout()" 
+                          class="bg-white text-primary-600 px-4 py-2 rounded-lg font-semibold hover:bg-opacity-90 transition-all duration-200 flex items-center gap-2">
+                    <i class="fas fa-sign-out-alt"></i>Logout
+                  </button>
+                </div>
+                <p class="text-white text-opacity-90 mb-6">Hello, <span class="font-semibold">${user.name}</span>! Scan the QR code to mark attendance.</p>
+                
+                <div id="scanner-container" class="scanner-glow rounded-2xl overflow-hidden mx-auto max-w-sm mb-6 bg-black">
+                  <div class="flex items-center justify-center h-full text-white">
+                    <i class="fas fa-camera text-2xl mr-2"></i>Initializing camera...
                   </div>
-                  <p class="text-gray-600 mb-4">Hello, <strong>${user.name}</strong>! Point your camera at the admin's QR code.</p>
-                  
-                  <div id="scanner-container" class="mb-6 p-2 border-4 border-indigo-500 rounded-lg overflow-hidden">
-                      <p class="text-white text-center p-4">Loading camera...</p>
-                  </div>
-                  
-                  <div id="attendance-status" class="mt-4 p-4 rounded-lg bg-gray-100 text-center hidden"></div>
-                  
-                  <h3 class="text-xl font-semibold text-gray-700 mt-10 mb-4 border-t pt-4">Your Overall Attendance</h3>
-                  <div id="student-stats-container" class="bg-gray-50 p-4 rounded-lg">Loading statistics...</div>
+                </div>
+                
+                <div id="attendance-status" class="hidden"></div>
               </div>
+
+              <!-- Stats Card -->
+              <div class="glass-effect rounded-2xl p-8">
+                <h3 class="text-2xl font-bold text-white mb-6 text-center">Your Attendance Overview</h3>
+                <div id="student-stats-container" class="text-center">
+                  <div class="flex justify-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
           `;
           
-          // 🌟 NEW: Initialize the QR scanner and fetch stats
           startQrScanner();
           fetchStudentStats();
       }
@@ -539,56 +662,81 @@
           if (!statsContainer) return;
           const student_id = user.user_id;
 
-          const data = await apiFetch(`/student/stats/${student_id}`, { method: "GET" });
+          const data = await apiFetch(`/student/stats/${student_id}`);
 
           if (data) {
               const percentage = data.percentage;
-              const color = percentage >= 75 ? 'text-green-600' : 'text-black-600';
+              const color = percentage >= 75 ? 'text-green-400' : 'text-red-400';
+              const ringColor = percentage >= 75 ? 'ring-green-400' : 'ring-red-400';
               
               statsContainer.innerHTML = `
-                  <div class="grid grid-cols-3 gap-4 text-center">
-                      <div class="p-3 border rounded-lg bg-blue-50">
-                          <p class="text-2xl font-bold text-blue-700">${data.total_classes}</p>
-                          <p class="text-sm text-gray-500">Total Classes</p>
-                      </div>
-                      <div class="p-3 border rounded-lg bg-green-50">
-                          <p class="text-2xl font-bold text-green-700">${data.attended}</p>
-                          <p class="text-sm text-gray-500">Attended</p>
-                      </div>
-                      <div class="p-3 border rounded-lg bg-red-50">
-                          <p class="text-2xl font-bold text-red-700">${data.missed}</p>
-                          <p class="text-sm text-gray-500">Missed</p>
-                      </div>
+                <div class="grid grid-cols-3 gap-4 mb-8">
+                  <div class="bg-white bg-opacity-20 rounded-xl p-4 text-center backdrop-blur-sm">
+                    <div class="text-2xl font-bold text-white">${data.total_classes}</div>
+                    <div class="text-white text-opacity-80 text-sm mt-1">Total Classes</div>
                   </div>
-                  <p class="text-4xl font-bold mt-6 text-center ${color}">Attendance: ${percentage}%</p>
+                  <div class="bg-white bg-opacity-20 rounded-xl p-4 text-center backdrop-blur-sm">
+                    <div class="text-2xl font-bold text-white">${data.attended}</div>
+                    <div class="text-white text-opacity-80 text-sm mt-1">Attended</div>
+                  </div>
+                  <div class="bg-white bg-opacity-20 rounded-xl p-4 text-center backdrop-blur-sm">
+                    <div class="text-2xl font-bold text-white">${data.missed}</div>
+                    <div class="text-white text-opacity-80 text-sm mt-1">Missed</div>
+                  </div>
+                </div>
+                <div class="relative inline-block">
+                  <div class="w-48 h-48 rounded-full flex items-center justify-center ${ringColor} ring-4">
+                    <div class="text-center">
+                      <div class="text-4xl font-extrabold text-white ${color}">${percentage}%</div>
+                      <div class="text-white text-opacity-80 text-sm mt-2">Overall Attendance</div>
+                    </div>
+                  </div>
+                </div>
               `;
           } else {
-              statsContainer.textContent = "Could not load statistics.";
+              statsContainer.innerHTML = '<p class="text-white text-opacity-80">Could not load statistics</p>';
           }
       }
 
       // =========================================================================
-      // LOGIN/REGISTRATION FUNCTIONS (Unchanged)
+      // AUTH PAGES - MODERN UI
       // =========================================================================
 
       function renderLoginPage() {
-        appContainer.innerHTML = `
-            <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-2xl">
-                <h2 class="text-3xl font-bold text-center text-indigo-700 mb-6">QR Attendance Login</h2>
-                <form id="login-form" class="space-y-4">
-                    <div>
-                        <input type="text" id="login-username" placeholder="Username" required class="input-field">
-                    </div>
-                    <div>
-                        <input type="password" id="login-password" placeholder="Password" required class="input-field">
-                    </div>
-                    <button type="submit" class="btn-primary w-full">Login</button>
-                </form>
-                <p class="text-center mt-4">
-                    Don't have an account? 
-                    <button onclick="renderRegistrationPage()" class="text-indigo-600 hover:text-indigo-800 font-medium">Register here</button>
+        contentContainer.innerHTML = `
+          <div class="max-w-md mx-auto animate-fade-in">
+            <div class="glass-effect rounded-2xl p-8 shadow-2xl">
+              <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-white bg-opacity-20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <i class="fas fa-user-lock text-2xl text-white"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-white">Welcome Back</h2>
+                <p class="text-white text-opacity-80 mt-2">Sign in to your account</p>
+              </div>
+              
+              <form id="login-form" class="space-y-6">
+                <div>
+                  <input type="text" id="login-username" placeholder="Username" required 
+                         class="w-full px-4 py-3 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-xl text-white placeholder-white placeholder-opacity-70 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-200">
+                </div>
+                <div>
+                  <input type="password" id="login-password" placeholder="Password" required 
+                         class="w-full px-4 py-3 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-xl text-white placeholder-white placeholder-opacity-70 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-200">
+                </div>
+                <button type="submit" 
+                        class="w-full bg-white text-primary-600 py-3 px-6 rounded-xl font-semibold hover:bg-opacity-90 transition-all duration-200 transform hover:scale-105">
+                  Sign In
+                </button>
+              </form>
+              
+              <div class="text-center mt-6">
+                <p class="text-white text-opacity-80">
+                  Don't have an account? 
+                  <button onclick="renderRegistrationPage()" class="text-white font-semibold hover:underline">Sign up</button>
                 </p>
+              </div>
             </div>
+          </div>
         `;
         document.getElementById("login-form").onsubmit = handleLogin;
       }
@@ -611,38 +759,57 @@
       }
 
       function renderRegistrationPage() {
-        appContainer.innerHTML = `
-            <div class="max-w-lg mx-auto bg-white p-8 rounded-xl shadow-2xl">
-                <h2 class="text-3xl font-bold text-center text-indigo-700 mb-6">Register</h2>
-                <form id="register-form" class="space-y-4">
-                    <div>
-                        <input type="text" id="reg-name" placeholder="Full Name" required class="input-field">
-                    </div>
-                    <div>
-                        <input type="text" id="reg-username" placeholder="Username" required class="input-field">
-                    </div>
-                    <div>
-                        <input type="password" id="reg-password" placeholder="Password" required class="input-field">
-                    </div>
-                    <div class="flex space-x-4">
-                        <select id="reg-role" required class="input-field flex-1" onchange="toggleStudentFields(this.value)">
-                            <option value="">Select Role</option>
-                            <option value="admin">Admin</option>
-                            <option value="student">Student</option>
-                        </select>
-                        <input type="text" id="reg-class-id" placeholder="Class ID (e.g. CS-A)" required class="input-field flex-1">
-                    </div>
-                    <div id="student-fields" class="space-y-4 hidden">
-                        <input type="text" id="reg-rollno" placeholder="Roll Number (Unique)" class="input-field">
-                        <input type="text" id="reg-semester" placeholder="Semester" class="input-field">
-                    </div>
-                    <button type="submit" class="btn-primary w-full">Register</button>
-                </form>
-                <p class="text-center mt-4">
-                    Already have an account? 
-                    <button onclick="renderLoginPage()" class="text-indigo-600 hover:text-indigo-800 font-medium">Login here</button>
+        contentContainer.innerHTML = `
+          <div class="max-w-lg mx-auto animate-fade-in">
+            <div class="glass-effect rounded-2xl p-8 shadow-2xl">
+              <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-white bg-opacity-20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <i class="fas fa-user-plus text-2xl text-white"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-white">Create Account</h2>
+                <p class="text-white text-opacity-80 mt-2">Join the QR Attendance System</p>
+              </div>
+              
+              <form id="register-form" class="space-y-4">
+                <div class="grid md:grid-cols-2 gap-4">
+                  <input type="text" id="reg-name" placeholder="Full Name" required 
+                         class="w-full px-4 py-3 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-xl text-white placeholder-white placeholder-opacity-70 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-200">
+                  <input type="text" id="reg-username" placeholder="Username" required 
+                         class="w-full px-4 py-3 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-xl text-white placeholder-white placeholder-opacity-70 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-200">
+                </div>
+                <input type="password" id="reg-password" placeholder="Password" required 
+                       class="w-full px-4 py-3 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-xl text-white placeholder-white placeholder-opacity-70 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-200">
+                <div class="grid md:grid-cols-2 gap-4">
+                  <select id="reg-role" required 
+                          class="w-full px-4 py-3 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-200"
+                          onchange="toggleStudentFields(this.value)">
+                    <option value="" class="text-gray-800">Select Role</option>
+                    <option value="admin" class="text-gray-800">Admin</option>
+                    <option value="student" class="text-gray-800">Student</option>
+                  </select>
+                  <input type="text" id="reg-class-id" placeholder="Class ID" required 
+                         class="w-full px-4 py-3 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-xl text-white placeholder-white placeholder-opacity-70 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-200">
+                </div>
+                <div id="student-fields" class="grid md:grid-cols-2 gap-4 hidden">
+                  <input type="text" id="reg-rollno" placeholder="Roll Number" 
+                         class="w-full px-4 py-3 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-xl text-white placeholder-white placeholder-opacity-70 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-200">
+                  <input type="text" id="reg-semester" placeholder="Semester" 
+                         class="w-full px-4 py-3 bg-white bg-opacity-20 border border-white border-opacity-30 rounded-xl text-white placeholder-white placeholder-opacity-70 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 transition-all duration-200">
+                </div>
+                <button type="submit" 
+                        class="w-full bg-white text-primary-600 py-3 px-6 rounded-xl font-semibold hover:bg-opacity-90 transition-all duration-200 transform hover:scale-105">
+                  Create Account
+                </button>
+              </form>
+              
+              <div class="text-center mt-6">
+                <p class="text-white text-opacity-80">
+                  Already have an account? 
+                  <button onclick="renderLoginPage()" class="text-white font-semibold hover:underline">Sign in</button>
                 </p>
+              </div>
             </div>
+          </div>
         `;
         document.getElementById("register-form").onsubmit = handleRegister;
       }
@@ -707,5 +874,3 @@
     </script>
   </body>
 </html>
-
-

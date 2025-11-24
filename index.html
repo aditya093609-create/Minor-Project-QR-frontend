@@ -5,130 +5,153 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>QR Attendance System</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    
+
     <script>
       tailwind.config = {
         theme: {
           extend: {
             colors: {
               primary: {
-                50: '#f0f9ff',
-                100: '#e0f2fe',
-                200: '#bae6fd',
-                300: '#7dd3fc',
-                400: '#38bdf8',
-                500: '#0ea5e9',
-                600: '#0284c7',
-                700: '#0369a1',
-                800: '#075985',
-                900: '#0c4a6e',
+                50: "#f0f9ff",
+                100: "#e0f2fe",
+                200: "#bae6fd",
+                300: "#7dd3fc",
+                400: "#38bdf8",
+                500: "#0ea5e9",
+                600: "#0284c7",
+                700: "#0369a1",
+                800: "#075985",
+                900: "#0c4a6e",
               },
               gradient: {
-                start: '#667eea',
-                end: '#764ba2'
-              }
+                start: "#667eea",
+                end: "#764ba2",
+              },
             },
             fontFamily: {
-              sans: ['Inter', 'system-ui', 'sans-serif'],
+              sans: ["Inter", "system-ui", "sans-serif"],
             },
             animation: {
-              'fade-in': 'fadeIn 0.5s ease-in-out',
-              'slide-up': 'slideUp 0.5s ease-out',
-              'pulse-slow': 'pulse 3s infinite',
+              "fade-in": "fadeIn 0.5s ease-in-out",
+              "slide-up": "slideUp 0.5s ease-out",
+              "pulse-slow": "pulse 3s infinite",
             },
             keyframes: {
               fadeIn: {
-                '0%': { opacity: '0' },
-                '100%': { opacity: '1' },
+                "0%": { opacity: "0" },
+                "100%": { opacity: "1" },
               },
               slideUp: {
-                '0%': { transform: 'translateY(20px)', opacity: '0' },
-                '100%': { transform: 'translateY(0)', opacity: '1' },
-              }
-            }
-          }
-        }
-      }
+                "0%": { transform: "translateY(20px)", opacity: "0" },
+                "100%": { transform: "translateY(0)", opacity: "1" },
+              },
+            },
+          },
+        },
+      };
     </script>
-    
+
     <style>
       body {
-        font-family: 'Inter', sans-serif;
+        font-family: "Inter", sans-serif;
       }
-      
+
       .glass-effect {
         background: rgba(255, 255, 255, 0.25);
         backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.18);
       }
-      
+
       .gradient-bg {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       }
-      
+
       .card-hover {
         transition: all 0.3s ease;
       }
-      
+
       .card-hover:hover {
         transform: translateY(-5px);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+          0 10px 10px -5px rgba(0, 0, 0, 0.04);
       }
-      
+
       .scanner-glow {
         box-shadow: 0 0 20px rgba(79, 70, 229, 0.3);
       }
-      
+
       /* Custom scrollbar */
       .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
       }
-      
+
       .custom-scrollbar::-webkit-scrollbar-track {
         background: #f1f5f9;
         border-radius: 10px;
       }
-      
+
       .custom-scrollbar::-webkit-scrollbar-thumb {
         background: #cbd5e1;
         border-radius: 10px;
       }
-      
+
       .custom-scrollbar::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
       }
     </style>
   </head>
   <body class="min-h-screen gradient-bg">
-    
     <!-- Modern Modal -->
-    <div id="message-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-auto animate-slide-up overflow-hidden">
+    <div
+      id="message-modal"
+      class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-auto animate-slide-up overflow-hidden"
+      >
         <div class="p-6">
-          <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-primary-100">
+          <div
+            class="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-primary-100"
+          >
             <i class="fas fa-info-circle text-primary-600 text-xl"></i>
           </div>
-          <h3 id="modal-title" class="text-xl font-bold text-center text-gray-900 mb-2"></h3>
+          <h3
+            id="modal-title"
+            class="text-xl font-bold text-center text-gray-900 mb-2"
+          ></h3>
           <p id="modal-body" class="text-gray-600 text-center mb-6"></p>
         </div>
         <div class="bg-gray-50 px-6 py-4 flex justify-center">
-          <button onclick="document.getElementById('message-modal').classList.add('hidden')" 
-                  class="px-6 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+          <button
+            onclick="document.getElementById('message-modal').classList.add('hidden')"
+            class="px-6 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+          >
             OK
           </button>
         </div>
       </div>
     </div>
-    
+
     <!-- Main App Container -->
-    <main id="app-container" class="min-h-screen flex items-center justify-center p-4">
+    <main
+      id="app-container"
+      class="min-h-screen flex items-center justify-center p-4"
+    >
       <div class="w-full max-w-7xl">
-        <h1 class="text-center text-4xl md:text-5xl font-extrabold text-white mb-8 animate-fade-in">
+        <h1
+          class="text-center text-4xl md:text-5xl font-extrabold text-white mb-8 animate-fade-in"
+        >
           <i class="fas fa-qrcode mr-3"></i>QR Attendance System
         </h1>
         <div id="content-container" class="animate-fade-in">
@@ -141,8 +164,8 @@
       // =========================================================================
       // GLOBAL CONFIGURATION & STATE
       // =========================================================================
-      
-      const BASE_URL = "https://minor-project-qr-backend-1.onrender.com"; 
+
+      const BASE_URL = "http://127.0.0.1:5000";
       let user = JSON.parse(localStorage.getItem("user")) || null;
       const contentContainer = document.getElementById("content-container");
       let qrCodeInstance = null;
@@ -206,89 +229,98 @@
       // =========================================================================
       // ADMIN DASHBOARD - MODERN UI
       // =========================================================================
-      
+
       async function handleCreateSession(e) {
         e.preventDefault();
-        const class_name = document.getElementById('class_name').value;
-        const class_code = document.getElementById('class_code').value;
-        const session_date = document.getElementById('create_session_date').value;
+        const class_name = document.getElementById("class_name").value;
+        const class_code = document.getElementById("class_code").value;
+        const session_date = document.getElementById(
+          "create_session_date"
+        ).value;
 
         if (!session_date) {
-            showMessage('Error', 'Please select a date for the session.');
-            return;
+          showMessage("Error", "Please select a date for the session.");
+          return;
         }
 
         const data = await apiFetch("/admin/create_session", {
-            method: "POST",
-            body: JSON.stringify({
-                class_name,
-                class_code,
-                class_id: user.class_id,
-                date: session_date
-            }),
+          method: "POST",
+          body: JSON.stringify({
+            class_name,
+            class_code,
+            class_id: user.class_id,
+            date: session_date,
+          }),
         });
 
         if (data) {
-            showMessage("Session Created", `New session for ${class_code} active for ${session_date}.`);
-            
-            const filterInput = document.getElementById('attendance-date');
-            if (filterInput) {
-                filterInput.value = session_date;
-            }
+          showMessage(
+            "Session Created",
+            `New session for ${class_code} active for ${session_date}.`
+          );
 
-            generateQrCode(data.qr_token);
-            fetchAdminData();
+          const filterInput = document.getElementById("attendance-date");
+          if (filterInput) {
+            filterInput.value = session_date;
+          }
+
+          generateQrCode(data.qr_token);
+          fetchAdminData();
         }
       }
 
       async function fetchAdminData() {
         if (!user || !user.class_id) return;
 
-        const dateInput = document.getElementById('attendance-date');
-        const selectedDate = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
-        
+        const dateInput = document.getElementById("attendance-date");
+        const selectedDate = dateInput
+          ? dateInput.value
+          : new Date().toISOString().split("T")[0];
+
         if (dateInput && !dateInput.value) {
-            dateInput.value = selectedDate;
+          dateInput.value = selectedDate;
         }
 
         const data = await apiFetch("/admin/attendance", {
-            method: "POST", 
-            body: JSON.stringify({ 
-                class_id: user.class_id,
-                date: selectedDate
-            }),
+          method: "POST",
+          body: JSON.stringify({
+            class_id: user.class_id,
+            date: selectedDate,
+          }),
         });
 
         if (data) {
-            renderStatsTable(data.stats || []); 
-            renderRecordsTable(data.records || []);
+          renderStatsTable(data.stats || []);
+          renderRecordsTable(data.records || []);
 
-            const token = data.current_qr_token;
-            if (token) {
-                const currentTokenDisplay = document.getElementById("qr-token-display");
-                if (!qrCodeInstance || currentTokenDisplay.textContent !== token) {
-                    generateQrCode(token);
-                }
-            } else {
-                const qrDiv = document.getElementById("qrcode");
-                qrDiv.innerHTML = '<div class="text-center p-8"><i class="fas fa-qrcode text-4xl text-gray-300 mb-2"></i><p class="text-gray-500">No active session found</p></div>';
-                document.getElementById("qr-token-display").textContent = "";
+          const token = data.current_qr_token;
+          if (token) {
+            const currentTokenDisplay =
+              document.getElementById("qr-token-display");
+            if (!qrCodeInstance || currentTokenDisplay.textContent !== token) {
+              generateQrCode(token);
             }
+          } else {
+            const qrDiv = document.getElementById("qrcode");
+            qrDiv.innerHTML =
+              '<div class="text-center p-8"><i class="fas fa-qrcode text-4xl text-gray-300 mb-2"></i><p class="text-gray-500">No active session found</p></div>';
+            document.getElementById("qr-token-display").textContent = "";
+          }
         }
       }
 
       function renderStatsTable(stats) {
         const container = document.getElementById("stats-table-container");
         if (!container) return;
-        
+
         if (stats.length === 0) {
-            container.innerHTML = `
+          container.innerHTML = `
               <div class="text-center py-12">
                 <i class="fas fa-chart-bar text-4xl text-gray-300 mb-3"></i>
                 <p class="text-gray-500">No session data found for this date</p>
               </div>
             `;
-            return;
+          return;
         }
 
         const tableHTML = `
@@ -304,7 +336,9 @@
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
-                ${stats.map(stat => `
+                ${stats
+                  .map(
+                    (stat) => `
                   <tr class="hover:bg-gray-50 transition-colors">
                     <td class="px-6 py-4 whitespace-nowrap">
                       <div class="flex items-center">
@@ -312,67 +346,87 @@
                           <i class="fas fa-user text-primary-600"></i>
                         </div>
                         <div class="ml-4">
-                          <div class="text-sm font-medium text-gray-900">${stat.name}</div>
+                          <div class="text-sm font-medium text-gray-900">${
+                            stat.name
+                          }</div>
                         </div>
                       </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${stat.rollno || "N/A"}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${
+                      stat.rollno || "N/A"
+                    }</td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                      <div class="text-sm text-gray-900">${stat.attended}/${stat.total}</div>
+                      <div class="text-sm text-gray-900">${stat.attended}/${
+                      stat.total
+                    }</div>
                       <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="bg-primary-600 h-2 rounded-full" style="width: ${(stat.attended/stat.total)*100}%"></div>
+                        <div class="bg-primary-600 h-2 rounded-full" style="width: ${
+                          (stat.attended / stat.total) * 100
+                        }%"></div>
                       </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                      <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${stat.percentage < 75 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                      <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        stat.percentage < 75
+                          ? "bg-red-100 text-red-800"
+                          : "bg-green-100 text-green-800"
+                      }">
                         ${stat.percentage}%
                       </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button onclick="handleDeleteStudentPrompt('${stat.id}', '${stat.name}')" 
+                      <button onclick="handleDeleteStudentPrompt('${
+                        stat.id
+                      }', '${stat.name}')" 
                               class="text-red-600 hover:text-red-900 transition-colors">
                         <i class="fas fa-trash-alt mr-1"></i>Delete
                       </button>
                     </td>
                   </tr>
-                `).join("")}
+                `
+                  )
+                  .join("")}
               </tbody>
             </table>
           </div>
         `;
         container.innerHTML = tableHTML;
       }
-      
+
       function handleDeleteStudentPrompt(student_id, student_name) {
-          if (confirm(`Are you sure you want to delete student: ${student_name}? This action is irreversible.`)) {
-              handleDeleteStudent(student_id);
-          }
+        if (
+          confirm(
+            `Are you sure you want to delete student: ${student_name}? This action is irreversible.`
+          )
+        ) {
+          handleDeleteStudent(student_id);
+        }
       }
 
       async function handleDeleteStudent(student_id) {
-          const data = await apiFetch("/admin/delete_student", {
-              method: "POST",
-              body: JSON.stringify({ student_id }),
-          });
+        const data = await apiFetch("/admin/delete_student", {
+          method: "POST",
+          body: JSON.stringify({ student_id }),
+        });
 
-          if (data) {
-              showMessage("Success", data.message);
-              fetchAdminData();
-          }
+        if (data) {
+          showMessage("Success", data.message);
+          fetchAdminData();
+        }
       }
-      
+
       function renderRecordsTable(records) {
         const container = document.getElementById("records-table-container");
         if (!container) return;
-        
+
         if (records.length === 0) {
-            container.innerHTML = `
+          container.innerHTML = `
               <div class="text-center py-12">
                 <i class="fas fa-clipboard-list text-4xl text-gray-300 mb-3"></i>
                 <p class="text-gray-500">No attendance records found</p>
               </div>
             `;
-            return;
+          return;
         }
 
         const tableHTML = `
@@ -388,55 +442,78 @@
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
-                ${records.map(record => {
-                    const date = new Date(record.timestamp * 1000).toLocaleString();
-                    const statusColor = record.status === 'Present' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-                    const statusIcon = record.status === 'Present' ? 'fa-check-circle' : 'fa-times-circle';
+                ${records
+                  .map((record) => {
+                    const date = new Date(
+                      record.timestamp * 1000
+                    ).toLocaleString();
+                    const statusColor =
+                      record.status === "Present"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800";
+                    const statusIcon =
+                      record.status === "Present"
+                        ? "fa-check-circle"
+                        : "fa-times-circle";
                     return `
                       <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-6 py-4 whitespace-nowrap">
-                          <div class="text-sm font-medium text-gray-900">${record.student_name}</div>
-                          <div class="text-sm text-gray-500">${record.roll_no || "N/A"}</div>
+                          <div class="text-sm font-medium text-gray-900">${
+                            record.student_name
+                          }</div>
+                          <div class="text-sm text-gray-500">${
+                            record.roll_no || "N/A"
+                          }</div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${record.class_code}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${
+                          record.class_code
+                        }</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                           <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusColor}">
-                            <i class="fas ${statusIcon} mr-1"></i>${record.status}
+                            <i class="fas ${statusIcon} mr-1"></i>${
+                      record.status
+                    }
                           </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${date}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button onclick="toggleAttendanceStatus('${record.id}', '${record.status}')" 
+                          <button onclick="toggleAttendanceStatus('${
+                            record.id
+                          }', '${record.status}')" 
                                   class="text-primary-600 hover:text-primary-900 transition-colors">
                             <i class="fas fa-sync-alt mr-1"></i>Toggle
                           </button>
                         </td>
                       </tr>
                     `;
-                }).join("")}
+                  })
+                  .join("")}
               </tbody>
             </table>
           </div>
         `;
         container.innerHTML = tableHTML;
       }
-      
-      async function toggleAttendanceStatus(record_id, current_status) {
-          const new_status = current_status === 'Present' ? 'Absent' : 'Present';
-          
-          const data = await apiFetch("/admin/update_attendance", {
-              method: "POST",
-              body: JSON.stringify({ record_id, status: new_status }),
-          });
 
-          if (data) {
-              showMessage("Update Successful", `Attendance status changed to ${new_status}.`);
-              fetchAdminData();
-          }
+      async function toggleAttendanceStatus(record_id, current_status) {
+        const new_status = current_status === "Present" ? "Absent" : "Present";
+
+        const data = await apiFetch("/admin/update_attendance", {
+          method: "POST",
+          body: JSON.stringify({ record_id, status: new_status }),
+        });
+
+        if (data) {
+          showMessage(
+            "Update Successful",
+            `Attendance status changed to ${new_status}.`
+          );
+          fetchAdminData();
+        }
       }
 
       function renderAdminDashboard() {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split("T")[0];
 
         contentContainer.innerHTML = `
           <div class="space-y-8 animate-fade-in">
@@ -445,11 +522,15 @@
               <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                   <h2 class="text-3xl font-bold text-white">Admin Dashboard</h2>
-                  <p class="text-white text-opacity-90 mt-2">Welcome back, <span class="font-semibold">${user.name}</span></p>
+                  <p class="text-white text-opacity-90 mt-2">Welcome back, <span class="font-semibold">${
+                    user.name
+                  }</span></p>
                 </div>
                 <div class="flex items-center gap-4">
                   <div class="bg-white bg-opacity-20 rounded-lg px-4 py-2">
-                    <p class="text-white text-sm">Class ID: <span class="font-semibold">${user.class_id}</span></p>
+                    <p class="text-white text-sm">Class ID: <span class="font-semibold">${
+                      user.class_id
+                    }</span></p>
                   </div>
                   <button onclick="handleLogout()" 
                           class="bg-white text-primary-600 px-4 py-2 rounded-lg font-semibold hover:bg-opacity-90 transition-all duration-200 flex items-center gap-2">
@@ -477,7 +558,10 @@
               <div class="glass-effect rounded-2xl p-6 flex items-center justify-center">
                 <div class="text-center">
                   <div class="text-3xl font-bold text-white mb-2">${new Date().getDate()}</div>
-                  <div class="text-white text-opacity-80 text-sm">${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+                  <div class="text-white text-opacity-80 text-sm">${new Date().toLocaleDateString(
+                    "en-US",
+                    { month: "long", year: "numeric" }
+                  )}</div>
                 </div>
               </div>
             </div>
@@ -518,7 +602,7 @@
               <!-- QR Code Display -->
               <div class="bg-white rounded-2xl shadow-xl p-6 card-hover flex flex-col items-center justify-center">
                 <div class="text-center mb-4">
-                  
+                 
                   <h3 class="text-xl font-semibold text-gray-800">Active QR Code</h3>
                 </div>
                 <div id="qrcode" class="p-4 border-4 border-primary-100 rounded-2xl bg-white mb-4 min-h-[200px] flex items-center justify-center">
@@ -527,6 +611,8 @@
                     <p class="text-gray-500">Generate a session to see QR</p>
                   </div>
                 </div>
+                
+              </div>
             </div>
 
             <!-- Statistics and Records -->
@@ -556,68 +642,82 @@
             </div>
           </div>
         `;
-        
-        document.getElementById('create-session-form').onsubmit = handleCreateSession;
-        document.getElementById('attendance-date').addEventListener('change', fetchAdminData);
-        
+
+        document.getElementById("create-session-form").onsubmit =
+          handleCreateSession;
+        document
+          .getElementById("attendance-date")
+          .addEventListener("change", fetchAdminData);
+
         fetchAdminData();
       }
 
       // =========================================================================
       // STUDENT DASHBOARD - MODERN UI
       // =========================================================================
-      
-      function startQrScanner() {
-          const containerId = "scanner-container";
-          const statusDiv = document.getElementById('attendance-status');
-          
-          if (qrCodeScanner) {
-            qrCodeScanner.stop().catch(console.error);
-          }
-          
-          qrCodeScanner = new Html5Qrcode(containerId);
 
-          qrCodeScanner.start(
-              { facingMode: "environment" },
-              { fps: 10, qrbox: { width: 250, height: 250 } },
-              (decodedText) => {
-                  qrCodeScanner.stop().then(() => {
-                      handleMarkAttendance(decodedText.trim().toUpperCase()); 
-                  }).catch(console.error);
-              },
-              () => {}
-          ).catch((err) => {
-              statusDiv.className = 'p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-center';
-              statusDiv.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>Camera Error: Check permissions and refresh';
-              statusDiv.style.display = 'block';
+      function startQrScanner() {
+        const containerId = "scanner-container";
+        const statusDiv = document.getElementById("attendance-status");
+
+        if (qrCodeScanner) {
+          qrCodeScanner.stop().catch(console.error);
+        }
+
+        qrCodeScanner = new Html5Qrcode(containerId);
+
+        qrCodeScanner
+          .start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            (decodedText) => {
+              qrCodeScanner
+                .stop()
+                .then(() => {
+                  handleMarkAttendance(decodedText.trim().toUpperCase());
+                })
+                .catch(console.error);
+            },
+            () => {}
+          )
+          .catch((err) => {
+            statusDiv.className =
+              "p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-center";
+            statusDiv.innerHTML =
+              '<i class="fas fa-exclamation-triangle mr-2"></i>Camera Error: Check permissions and refresh';
+            statusDiv.style.display = "block";
           });
       }
-      
+
       async function handleMarkAttendance(qr_token) {
-          const student_id = user.user_id;
-          const statusDiv = document.getElementById('attendance-status');
-          
-          statusDiv.className = 'p-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-700 text-center';
-          statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Submitting attendance...';
-          statusDiv.style.display = 'block';
+        const student_id = user.user_id;
+        const statusDiv = document.getElementById("attendance-status");
 
-          const data = await apiFetch("/student/mark_attendance", {
-              method: "POST",
-              body: JSON.stringify({ student_id, qr_token }),
-          });
+        statusDiv.className =
+          "p-4 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-700 text-center";
+        statusDiv.innerHTML =
+          '<i class="fas fa-spinner fa-spin mr-2"></i>Submitting attendance...';
+        statusDiv.style.display = "block";
 
-          if (data && data.status) {
-              statusDiv.className = 'p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-center';
-              statusDiv.innerHTML = `<i class="fas fa-check-circle mr-2"></i>${data.message}`;
-              fetchStudentStats();
-          } else if (data && data.error) {
-              statusDiv.className = 'p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-center';
-              statusDiv.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i>${data.error}`;
-          }
+        const data = await apiFetch("/student/mark_attendance", {
+          method: "POST",
+          body: JSON.stringify({ student_id, qr_token }),
+        });
+
+        if (data && data.status) {
+          statusDiv.className =
+            "p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-center";
+          statusDiv.innerHTML = `<i class="fas fa-check-circle mr-2"></i>${data.message}`;
+          fetchStudentStats();
+        } else if (data && data.error) {
+          statusDiv.className =
+            "p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-center";
+          statusDiv.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i>${data.error}`;
+        }
       }
 
       function renderStudentDashboard() {
-          contentContainer.innerHTML = `
+        contentContainer.innerHTML = `
             <div class="max-w-2xl mx-auto animate-fade-in">
               <!-- Scanner Card -->
               <div class="glass-effect rounded-2xl p-8 text-center mb-6">
@@ -650,24 +750,27 @@
               </div>
             </div>
           `;
-          
-          startQrScanner();
-          fetchStudentStats();
+
+        startQrScanner();
+        fetchStudentStats();
       }
-      
+
       async function fetchStudentStats() {
-          const statsContainer = document.getElementById('student-stats-container');
-          if (!statsContainer) return;
-          const student_id = user.user_id;
+        const statsContainer = document.getElementById(
+          "student-stats-container"
+        );
+        if (!statsContainer) return;
+        const student_id = user.user_id;
 
-          const data = await apiFetch(`/student/stats/${student_id}`);
+        const data = await apiFetch(`/student/stats/${student_id}`);
 
-          if (data) {
-              const percentage = data.percentage;
-              const color = percentage >= 75 ? 'text-green-400' : 'text-red-400';
-              const ringColor = percentage >= 75 ? 'ring-green-400' : 'ring-red-400';
-              
-              statsContainer.innerHTML = `
+        if (data) {
+          const percentage = data.percentage;
+          const color = percentage >= 75 ? "text-green-400" : "text-red-400";
+          const ringColor =
+            percentage >= 75 ? "ring-green-400" : "ring-red-400";
+
+          statsContainer.innerHTML = `
                 <div class="grid grid-cols-3 gap-4 mb-8">
                   <div class="bg-white bg-opacity-20 rounded-xl p-4 text-center backdrop-blur-sm">
                     <div class="text-2xl font-bold text-white">${data.total_classes}</div>
@@ -691,9 +794,10 @@
                   </div>
                 </div>
               `;
-          } else {
-              statsContainer.innerHTML = '<p class="text-white text-opacity-80">Could not load statistics</p>';
-          }
+        } else {
+          statsContainer.innerHTML =
+            '<p class="text-white text-opacity-80">Could not load statistics</p>';
+        }
       }
 
       // =========================================================================
@@ -738,22 +842,22 @@
         `;
         document.getElementById("login-form").onsubmit = handleLogin;
       }
-      
+
       async function handleLogin(e) {
-          e.preventDefault();
-          const username = document.getElementById("login-username").value;
-          const password = document.getElementById("login-password").value;
+        e.preventDefault();
+        const username = document.getElementById("login-username").value;
+        const password = document.getElementById("login-password").value;
 
-          const data = await apiFetch("/login", {
-              method: "POST",
-              body: JSON.stringify({ username, password }),
-          });
+        const data = await apiFetch("/login", {
+          method: "POST",
+          body: JSON.stringify({ username, password }),
+        });
 
-          if (data && data.user) {
-              localStorage.setItem("user", JSON.stringify(data.user));
-              user = data.user;
-              initializeApp();
-          }
+        if (data && data.user) {
+          localStorage.setItem("user", JSON.stringify(data.user));
+          user = data.user;
+          initializeApp();
+        }
       }
 
       function renderRegistrationPage() {
@@ -813,43 +917,43 @@
       }
 
       function toggleStudentFields(role) {
-          const fields = document.getElementById("student-fields");
-          if (role === 'student') {
-              fields.classList.remove('hidden');
-              document.getElementById('reg-rollno').required = true;
-              document.getElementById('reg-semester').required = true;
-          } else {
-              fields.classList.add('hidden');
-              document.getElementById('reg-rollno').required = false;
-              document.getElementById('reg-semester').required = false;
-          }
+        const fields = document.getElementById("student-fields");
+        if (role === "student") {
+          fields.classList.remove("hidden");
+          document.getElementById("reg-rollno").required = true;
+          document.getElementById("reg-semester").required = true;
+        } else {
+          fields.classList.add("hidden");
+          document.getElementById("reg-rollno").required = false;
+          document.getElementById("reg-semester").required = false;
+        }
       }
-      
+
       async function handleRegister(e) {
-          e.preventDefault();
-          const role = document.getElementById("reg-role").value;
-          const payload = {
-              name: document.getElementById("reg-name").value,
-              username: document.getElementById("reg-username").value,
-              password: document.getElementById("reg-password").value,
-              role: role,
-              class_id: document.getElementById("reg-class-id").value,
-          };
+        e.preventDefault();
+        const role = document.getElementById("reg-role").value;
+        const payload = {
+          name: document.getElementById("reg-name").value,
+          username: document.getElementById("reg-username").value,
+          password: document.getElementById("reg-password").value,
+          role: role,
+          class_id: document.getElementById("reg-class-id").value,
+        };
 
-          if (role === 'student') {
-              payload.rollno = document.getElementById("reg-rollno").value;
-              payload.semester = document.getElementById("reg-semester").value;
-          }
+        if (role === "student") {
+          payload.rollno = document.getElementById("reg-rollno").value;
+          payload.semester = document.getElementById("reg-semester").value;
+        }
 
-          const data = await apiFetch("/register", {
-              method: "POST",
-              body: JSON.stringify(payload),
-          });
+        const data = await apiFetch("/register", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
 
-          if (data) {
-              showMessage("Success", data.message);
-              renderLoginPage();
-          }
+        if (data) {
+          showMessage("Success", data.message);
+          renderLoginPage();
+        }
       }
 
       // =========================================================================
@@ -857,21 +961,18 @@
       // =========================================================================
 
       function initializeApp() {
-          if (user) {
-              if (user.role === 'admin') {
-                  renderAdminDashboard();
-              } else if (user.role === 'student') {
-                  renderStudentDashboard();
-              }
-          } else {
-              renderLoginPage();
+        if (user) {
+          if (user.role === "admin") {
+            renderAdminDashboard();
+          } else if (user.role === "student") {
+            renderStudentDashboard();
           }
+        } else {
+          renderLoginPage();
+        }
       }
 
       initializeApp();
     </script>
   </body>
 </html>
-
-
-
